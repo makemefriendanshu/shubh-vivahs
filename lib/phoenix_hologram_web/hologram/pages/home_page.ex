@@ -243,7 +243,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
 
           <div class="card card-stock shadow-xl">
             <div class="card-body">
-              <div class="flex items-start gap-4">
+              <div class="flex flex-col items-center sm:flex-row sm:items-start gap-4 text-center sm:text-left">
                 <div class="w-12 h-12 shrink-0 rounded-box bg-primary/10 border-2 border-primary/40 flex items-center justify-center">
                   <span class="hero-eye w-6 h-6 text-primary"></span>
                 </div>
