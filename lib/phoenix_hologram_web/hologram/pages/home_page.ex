@@ -2,14 +2,18 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
   @moduledoc """
   Public landing page: sells the "turn your wedding videos into a digital
   keepsake" pitch, showcases the real films already in the Premiere Hall as
-  a live example, and offers Log In / Register tabs (visual-only, same as
-  `LoginPage` / `RegisterPage`, until a real auth system is built) to start
-  a story.
+  a live example, and offers real Log In / Register tabs (same
+  `PhoenixHologram.Accounts` backend as the dedicated `LoginPage` /
+  `RegisterPage` — duplicated here rather than shared, matching how this
+  codebase already duplicates page content elsewhere, e.g. UpgradePage's
+  `@admin_steps`) to start a story without leaving the home page.
   """
 
   use Hologram.Page
+  use Hologram.JS
 
   alias Hologram.UI.Link
+  alias PhoenixHologram.Accounts
   alias PhoenixHologram.FaceDetection
   alias PhoenixHologramWeb.Hologram.Pages.AdminMoviePage
   alias PhoenixHologramWeb.Hologram.Pages.PlayerPage
@@ -28,6 +32,11 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
     component
     |> put_state(:movies, movies)
     |> put_state(:auth_tab, :login)
+    |> put_state(:name, "")
+    |> put_state(:email, "")
+    |> put_state(:password, "")
+    |> put_state(:auth_error, nil)
+    |> put_state(:auth_submitting?, false)
   end
 
   defp build_card(movie) do
@@ -68,7 +77,95 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
         _ -> :login
       end
 
-    put_state(component, :auth_tab, tab)
+    put_state(component, auth_tab: tab, auth_error: nil)
+  end
+
+  def action(:update_name, params, component) do
+    put_state(component, name: params.event.value, auth_error: nil)
+  end
+
+  def action(:update_email, params, component) do
+    put_state(component, email: params.event.value, auth_error: nil)
+  end
+
+  def action(:update_password, params, component) do
+    put_state(component, password: params.event.value, auth_error: nil)
+  end
+
+  def action(:login_submit_clicked, _params, component) do
+    email = String.trim(component.state.email)
+    password = component.state.password
+
+    if email == "" or password == "" do
+      put_state(component, :auth_error, "Please enter both your email and password.")
+    else
+      component
+      |> put_state(auth_submitting?: true, auth_error: nil)
+      |> put_command(:log_in, email: email, password: password)
+    end
+  end
+
+  def action(:register_submit_clicked, _params, component) do
+    name = String.trim(component.state.name)
+    email = String.trim(component.state.email)
+    password = component.state.password
+
+    cond do
+      name == "" or email == "" or password == "" ->
+        put_state(component, :auth_error, "Please fill in your name, email, and password.")
+
+      String.length(password) < 8 ->
+        put_state(component, :auth_error, "Password must be at least 8 characters.")
+
+      true ->
+        component
+        |> put_state(auth_submitting?: true, auth_error: nil)
+        |> put_command(:register, name: name, email: email, password: password)
+    end
+  end
+
+  # Real browser navigation, not put_page — see LoginPage's
+  # :login_succeeded for why every identity-changing transition in this
+  # app uses a full page load instead of Hologram's client-side SPA nav.
+  def action(:auth_succeeded, _params, component) do
+    JS.exec("window.location.href = '/dashboard';")
+    component
+  end
+
+  def action(:auth_failed, params, component) do
+    put_state(component, auth_submitting?: false, auth_error: params.message)
+  end
+
+  def command(:log_in, %{email: email, password: password}, server) do
+    case Accounts.authenticate_user(email, password) do
+      {:ok, user} ->
+        server
+        |> put_user_id(user.id)
+        |> put_action(:auth_succeeded)
+
+      {:error, :invalid_credentials} ->
+        put_action(server, :auth_failed, message: "Invalid email or password.")
+    end
+  end
+
+  def command(:register, %{name: name, email: email, password: password}, server) do
+    case Accounts.register_user(%{name: name, email: email, password: password}) do
+      {:ok, user} ->
+        server
+        |> put_user_id(user.id)
+        |> put_action(:auth_succeeded)
+
+      {:error, changeset} ->
+        put_action(server, :auth_failed, message: registration_error_message(changeset))
+    end
+  end
+
+  defp registration_error_message(changeset) do
+    if Keyword.has_key?(changeset.errors, :email) do
+      "That email is already registered — try logging in instead."
+    else
+      "Please check your details and try again."
+    end
   end
 
   def template do
@@ -262,24 +359,51 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
 
               {%if @auth_tab == :register}
                 <span class="text-xs text-base-content/60 mb-1">Full Name</span>
-                <input type="text" placeholder="Your full name" class="input input-bordered w-full" />
+                <input
+                  type="text"
+                  placeholder="Your full name"
+                  value={@name}
+                  $change="update_name"
+                  class="input input-bordered w-full"
+                />
 
                 <span class="text-xs text-base-content/60 mb-1 mt-4">Email Address</span>
-                <input type="email" placeholder="you@example.com" class="input input-bordered w-full" />
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={@email}
+                  $change="update_email"
+                  class="input input-bordered w-full"
+                />
 
                 <span class="text-xs text-base-content/60 mb-1 mt-4">Password</span>
-                <input type="password" placeholder="••••••••••" class="input input-bordered w-full" />
+                <input
+                  type="password"
+                  placeholder="At least 8 characters"
+                  value={@password}
+                  $change="update_password"
+                  $key_down.enter="register_submit_clicked"
+                  class="input input-bordered w-full"
+                />
 
-                <span class="text-xs text-base-content/60 mb-1 mt-4">Wedding Date</span>
-                <input type="date" class="input input-bordered w-full" />
+                {%if @auth_error}
+                  <p class="text-xs text-error mt-2">{@auth_error}</p>
+                {/if}
 
-                <span class="btn btn-primary btn-block mt-6 pointer-events-none gap-2">
-                  <span class="hero-sparkles w-4 h-4"></span>
-                  Register Your Vivah Videos
-                </span>
-                <p class="text-center text-xs text-base-content/50 mt-2">
-                  Account creation is coming soon.
-                </p>
+                <button
+                  type="button"
+                  $click="register_submit_clicked"
+                  disabled={@auth_submitting?}
+                  class="btn btn-primary btn-block mt-6 gap-2"
+                >
+                  {%if @auth_submitting?}
+                    <span class="loading loading-spinner loading-xs"></span>
+                    Creating Your Story...
+                  {%else}
+                    <span class="hero-sparkles w-4 h-4"></span>
+                    Register Your Vivah Videos
+                  {/if}
+                </button>
               {%else}
                 {%if @auth_tab == :forgot_password}
                   <p class="text-sm text-base-content/60 text-center mb-3">
@@ -308,7 +432,13 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
                   </p>
                 {%else}
                   <span class="text-xs text-base-content/60 mb-1">Email address</span>
-                  <input type="email" placeholder="you@example.com" class="input input-bordered w-full" />
+                  <input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={@email}
+                    $change="update_email"
+                    class="input input-bordered w-full"
+                  />
 
                   <div class="flex items-center justify-between mt-4 mb-1">
                     <span class="text-xs text-base-content/60">Password</span>
@@ -320,15 +450,33 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
                       Forgot Password?
                     </button>
                   </div>
-                  <input type="password" placeholder="••••••••••" class="input input-bordered w-full" />
+                  <input
+                    type="password"
+                    placeholder="••••••••••"
+                    value={@password}
+                    $change="update_password"
+                    $key_down.enter="login_submit_clicked"
+                    class="input input-bordered w-full"
+                  />
 
-                  <span class="btn btn-primary btn-block mt-6 pointer-events-none gap-2">
-                    <span class="hero-arrow-right-end-on-rectangle w-4 h-4"></span>
-                    Log In To Your Memories
-                  </span>
-                  <p class="text-center text-xs text-base-content/50 mt-2">
-                    Account sign-in is coming soon.
-                  </p>
+                  {%if @auth_error}
+                    <p class="text-xs text-error mt-2">{@auth_error}</p>
+                  {/if}
+
+                  <button
+                    type="button"
+                    $click="login_submit_clicked"
+                    disabled={@auth_submitting?}
+                    class="btn btn-primary btn-block mt-6 gap-2"
+                  >
+                    {%if @auth_submitting?}
+                      <span class="loading loading-spinner loading-xs"></span>
+                      Signing In...
+                    {%else}
+                      <span class="hero-arrow-right-end-on-rectangle w-4 h-4"></span>
+                      Log In To Your Memories
+                    {/if}
+                  </button>
                 {/if}
               {/if}
             </div>
