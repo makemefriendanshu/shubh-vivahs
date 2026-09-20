@@ -9,6 +9,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.LoginPage do
   use Hologram.Page
 
   alias Hologram.UI.Link
+  alias PhoenixHologramWeb.Hologram.Pages.ForgotPasswordPage
   alias PhoenixHologramWeb.Hologram.Pages.RegisterPage
 
   route "/login"
@@ -43,7 +44,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.LoginPage do
 
             <div class="flex items-center justify-between mt-4 mb-1">
               <span class="text-xs text-base-content/60">Password</span>
-              <span class="text-xs text-base-content/50">Forgot Password?</span>
+              <Link to={ForgotPasswordPage} class="text-xs link link-primary">Forgot Password?</Link>
             </div>
             <input type="password" placeholder="••••••••••" class="input input-bordered w-full" />
 
@@ -57,7 +58,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.LoginPage do
 
             <p class="text-center text-sm mt-4">
               First time here?
-              <Link to={RegisterPage} class="link link-hover font-semibold">Create Your Story</Link>
+              <Link to={RegisterPage} class="link link-primary font-semibold">Create Your Story</Link>
             </p>
           </div>
         </div>

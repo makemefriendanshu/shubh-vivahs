@@ -1,10 +1,9 @@
-defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
+defmodule PhoenixHologramWeb.Hologram.Pages.ForgotPasswordPage do
   @moduledoc """
-  Visual registration page only — mirrors LoginPage: there is no
-  user/account system in the app yet (no schema, password hashing, or
-  session-based auth), so the form here does not create any account. It
-  exists to match the design mockup and give LoginPage's "Create Your
-  Story" link a real landing spot.
+  Visual-only password recovery page, mirrors LoginPage / RegisterPage:
+  there is no user/account system in the app yet (no schema, password
+  hashing, or session-based auth), so the form here does not send any
+  reset email. Reached from LoginPage's "Forgot Password?" link.
   """
 
   use Hologram.Page
@@ -12,7 +11,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
   alias Hologram.UI.Link
   alias PhoenixHologramWeb.Hologram.Pages.LoginPage
 
-  route "/register"
+  route "/forgot-password"
 
   layout PhoenixHologramWeb.Hologram.Layouts.DefaultLayout
 
@@ -26,7 +25,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
             <circle cx="10" cy="10" r="2.5" fill="currentColor" stroke="none" opacity="0.55" />
           </svg>
           <h1 class="font-display text-xl sm:text-2xl text-center">
-            Create Your Eternal Story
+            Recover Your Access
           </h1>
           <svg viewBox="0 0 24 40" class="w-4 h-8 text-primary/70 -scale-x-100" fill="none" stroke="currentColor" stroke-width="1.2">
             <path d="M12 2c-6 6-6 20 0 36" />
@@ -34,40 +33,25 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
           </svg>
         </div>
         <p class="text-center text-sm text-base-content/60 mb-6">
-          A few details, and we'll start curating your celebration.
+          Enter your email and we'll send you a link to reset your password.
         </p>
 
         <div class="card card-stock shadow-xl">
           <div class="card-body">
-            <span class="text-xs text-base-content/60 mb-1">Full Name</span>
-            <input type="text" placeholder="Your full name" class="input input-bordered w-full" />
-
-            <span class="text-xs text-base-content/60 mb-1 mt-4">Email Address</span>
+            <span class="text-xs text-base-content/60 mb-1">Email address</span>
             <input type="email" placeholder="you@example.com" class="input input-bordered w-full" />
 
-            <span class="text-xs text-base-content/60 mb-1 mt-4">Password</span>
-            <input type="password" placeholder="••••••••••" class="input input-bordered w-full" />
-
-            <span class="text-xs text-base-content/60 mb-1 mt-4">Wedding Date</span>
-            <input type="date" class="input input-bordered w-full" />
-            <p class="text-xs text-base-content/50 mt-1">
-              Your wedding date helps us customize your timeline.
-            </p>
-
-            <span class="text-xs text-base-content/60 mb-1 mt-4">Partner's Name</span>
-            <input type="text" placeholder="Your partner's name" class="input input-bordered w-full" />
-
             <span class="btn btn-primary btn-block mt-6 pointer-events-none gap-2">
-              <span class="hero-sparkles w-4 h-4"></span>
-              Register Your Vivah Videos
+              <span class="hero-envelope w-4 h-4"></span>
+              Send Reset Link
             </span>
             <p class="text-center text-xs text-base-content/50 mt-2">
-              Account creation is coming soon.
+              Password recovery is coming soon.
             </p>
 
             <p class="text-center text-sm mt-4">
-              Already have an account?
-              <Link to={LoginPage} class="link link-primary font-semibold">Log In Here</Link>
+              Remembered it?
+              <Link to={LoginPage} class="link link-primary font-semibold">Back To Log In</Link>
             </p>
           </div>
         </div>

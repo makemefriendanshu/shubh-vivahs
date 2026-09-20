@@ -2,16 +2,15 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
   @moduledoc """
   Public landing page: sells the "turn your wedding videos into a digital
   keepsake" pitch, showcases the real films already in the Premiere Hall as
-  a live example, and captures "Start your story" signups (see
-  `PhoenixHologram.Leads`).
+  a live example, and offers Log In / Register tabs (visual-only, same as
+  `LoginPage` / `RegisterPage`, until a real auth system is built) to start
+  a story.
   """
 
   use Hologram.Page
-  use Hologram.JS
 
   alias Hologram.UI.Link
   alias PhoenixHologram.FaceDetection
-  alias PhoenixHologram.Leads
   alias PhoenixHologramWeb.Hologram.Pages.AdminMoviePage
   alias PhoenixHologramWeb.Hologram.Pages.PlayerPage
   alias PhoenixHologramWeb.Hologram.Pages.PremierePage
@@ -28,8 +27,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
 
     component
     |> put_state(:movies, movies)
-    |> put_state(:lead_status, :idle)
-    |> put_state(:lead_errors, [])
+    |> put_state(:auth_tab, :login)
   end
 
   defp build_card(movie) do
@@ -59,62 +57,19 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
   defp format_event_date(nil), do: nil
   defp format_event_date(date), do: date |> Calendar.strftime("%d %b %Y") |> String.upcase()
 
-  # Runs client-side, so the actual insert happens in the :persist_lead
-  # command below — same client-action/server-command split used
-  # throughout the Hologram pages (see AdminMoviePage) since DB access
-  # isn't available client-side.
-  def action(:submit_lead, params, component) do
-    put_command(component, :persist_lead,
-      name: blank_to_nil(params.event["name"]),
-      wedding_date: blank_to_nil(params.event["wedding_date"]),
-      email: blank_to_nil(params.event["email"])
-    )
+  # Pure client-side UI toggle (same idiom as AdminAnalyticsPage's
+  # :toggle_filters) — never needs a server round trip. :forgot_password
+  # is reached via the login form's "Forgot Password?" link, not a top tab.
+  def action(:switch_auth_tab, params, component) do
+    tab =
+      case params.tab do
+        "register" -> :register
+        "forgot_password" -> :forgot_password
+        _ -> :login
+      end
+
+    put_state(component, :auth_tab, tab)
   end
-
-  def action(:lead_saved, _params, component) do
-    JS.exec("""
-    const form = document.getElementById('lead-form');
-    if (form) { form.reset(); }
-    """)
-
-    component
-    |> put_state(:lead_status, :success)
-    |> put_state(:lead_errors, [])
-  end
-
-  def action(:lead_rejected, params, component) do
-    component
-    |> put_state(:lead_status, :error)
-    |> put_state(:lead_errors, params.errors)
-  end
-
-  def command(:persist_lead, params, server) do
-    case Leads.create_lead(%{
-           name: params.name,
-           wedding_date: params.wedding_date,
-           email: params.email
-         }) do
-      {:ok, _lead} ->
-        put_action(server, :lead_saved)
-
-      {:error, changeset} ->
-        put_action(server, :lead_rejected, errors: changeset_error_messages(changeset))
-    end
-  end
-
-  defp changeset_error_messages(changeset) do
-    changeset
-    |> Ecto.Changeset.traverse_errors(fn {msg, opts} ->
-      Enum.reduce(opts, msg, fn {key, value}, acc ->
-        String.replace(acc, "%{#{key}}", to_string(value))
-      end)
-    end)
-    |> Enum.flat_map(fn {field, msgs} -> Enum.map(msgs, &"#{field} #{&1}") end)
-  end
-
-  defp blank_to_nil(nil), do: nil
-  defp blank_to_nil(""), do: nil
-  defp blank_to_nil(value), do: value
 
   def template do
     ~HOLO"""
@@ -265,48 +220,118 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
       </div>
 
       <div id="start-your-story" class="p-6">
-        <div class="max-w-md mx-auto card card-stock shadow-xl">
-          <div class="card-body items-center text-center">
-            <h2 class="font-display text-xl sm:text-2xl">Start Your Story</h2>
-            <p class="text-sm text-base-content/60 -mt-1">Share your videos with us.</p>
-            <div class="gold-divider w-16 my-3"></div>
+        <div class="max-w-md mx-auto">
+          <h2 class="font-display text-xl sm:text-2xl text-center">Start Your Story</h2>
+          <p class="text-sm text-base-content/60 text-center mt-1">
+            Sign in to revisit your celebration, or register to begin a new one.
+          </p>
+          <div class="gold-divider w-16 my-3 mx-auto"></div>
 
-            {%if @lead_status == :success}
-              <p class="text-sm text-success">
-                Thank you! We've received your details and will be in touch shortly.
-              </p>
-            {%else}
-              {%if @lead_status == :error}
-                <div class="text-sm text-error text-left w-full">
-                  {%for message <- @lead_errors}
-                    <p>{message}</p>
-                  {/for}
-                </div>
+          <div class="card card-stock shadow-xl">
+            <div class="card-body">
+              <div role="tablist" class="tabs tabs-boxed w-full mb-4 p-1.5 gap-1.5">
+                <button
+                  type="button"
+                  role="tab"
+                  $click={:switch_auth_tab, tab: "login"}
+                  class={
+                    if @auth_tab in [:login, :forgot_password] do
+                      "tab flex-1 tab-lg font-display font-semibold bg-primary text-primary-content shadow-md"
+                    else
+                      "tab flex-1 tab-lg font-display text-base-content/60"
+                    end
+                  }
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  $click={:switch_auth_tab, tab: "register"}
+                  class={
+                    if @auth_tab == :register do
+                      "tab flex-1 tab-lg font-display font-semibold bg-primary text-primary-content shadow-md"
+                    else
+                      "tab flex-1 tab-lg font-display text-base-content/60"
+                    end
+                  }
+                >
+                  Register
+                </button>
+              </div>
+
+              {%if @auth_tab == :register}
+                <span class="text-xs text-base-content/60 mb-1">Full Name</span>
+                <input type="text" placeholder="Your full name" class="input input-bordered w-full" />
+
+                <span class="text-xs text-base-content/60 mb-1 mt-4">Email Address</span>
+                <input type="email" placeholder="you@example.com" class="input input-bordered w-full" />
+
+                <span class="text-xs text-base-content/60 mb-1 mt-4">Password</span>
+                <input type="password" placeholder="••••••••••" class="input input-bordered w-full" />
+
+                <span class="text-xs text-base-content/60 mb-1 mt-4">Wedding Date</span>
+                <input type="date" class="input input-bordered w-full" />
+
+                <span class="btn btn-primary btn-block mt-6 pointer-events-none gap-2">
+                  <span class="hero-sparkles w-4 h-4"></span>
+                  Register Your Vivah Videos
+                </span>
+                <p class="text-center text-xs text-base-content/50 mt-2">
+                  Account creation is coming soon.
+                </p>
+              {%else}
+                {%if @auth_tab == :forgot_password}
+                  <p class="text-sm text-base-content/60 text-center mb-3">
+                    Enter your email and we'll send you a link to reset your password.
+                  </p>
+                  <span class="text-xs text-base-content/60 mb-1">Email address</span>
+                  <input type="email" placeholder="you@example.com" class="input input-bordered w-full" />
+
+                  <span class="btn btn-primary btn-block mt-6 pointer-events-none gap-2">
+                    <span class="hero-envelope w-4 h-4"></span>
+                    Send Reset Link
+                  </span>
+                  <p class="text-center text-xs text-base-content/50 mt-2">
+                    Password recovery is coming soon.
+                  </p>
+
+                  <p class="text-center text-sm mt-4">
+                    Remembered it?
+                    <button
+                      type="button"
+                      $click={:switch_auth_tab, tab: "login"}
+                      class="link link-primary font-semibold"
+                    >
+                      Back To Log In
+                    </button>
+                  </p>
+                {%else}
+                  <span class="text-xs text-base-content/60 mb-1">Email address</span>
+                  <input type="email" placeholder="you@example.com" class="input input-bordered w-full" />
+
+                  <div class="flex items-center justify-between mt-4 mb-1">
+                    <span class="text-xs text-base-content/60">Password</span>
+                    <button
+                      type="button"
+                      $click={:switch_auth_tab, tab: "forgot_password"}
+                      class="text-xs link link-primary"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                  <input type="password" placeholder="••••••••••" class="input input-bordered w-full" />
+
+                  <span class="btn btn-primary btn-block mt-6 pointer-events-none gap-2">
+                    <span class="hero-arrow-right-end-on-rectangle w-4 h-4"></span>
+                    Log In To Your Memories
+                  </span>
+                  <p class="text-center text-xs text-base-content/50 mt-2">
+                    Account sign-in is coming soon.
+                  </p>
+                {/if}
               {/if}
-              <form id="lead-form" method="post" $submit="submit_lead" class="flex flex-col gap-3 w-full">
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Name"
-                  required
-                  class="input input-bordered w-full"
-                />
-                <input
-                  type="date"
-                  name="wedding_date"
-                  placeholder="Wedding Date"
-                  class="input input-bordered w-full"
-                />
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="Email"
-                  required
-                  class="input input-bordered w-full"
-                />
-                <button type="submit" class="btn btn-primary w-full">Get Started</button>
-              </form>
-            {/if}
+            </div>
           </div>
         </div>
       </div>
