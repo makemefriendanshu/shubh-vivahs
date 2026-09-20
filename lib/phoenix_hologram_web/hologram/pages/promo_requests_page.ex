@@ -13,9 +13,12 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PromoRequestsPage do
 
   alias Hologram.UI.Link
   alias PhoenixHologram.PromoRequests
+  alias PhoenixHologramWeb.Hologram.Middleware.RequireSuperuser
   alias PhoenixHologramWeb.Hologram.Pages.AdminMoviesPage
 
   route "/admin/promo-requests"
+
+  middleware RequireSuperuser
 
   layout PhoenixHologramWeb.Hologram.Layouts.DefaultLayout
 

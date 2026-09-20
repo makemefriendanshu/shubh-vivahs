@@ -13,10 +13,13 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
   alias PhoenixHologram.FaceDetection.{Movie, SceneIndex}
   alias PhoenixHologram.FocusPoll
   alias PhoenixHologram.Repo
+  alias PhoenixHologramWeb.Hologram.Middleware.RequireSuperuser
   alias PhoenixHologramWeb.Hologram.Pages.AdminMoviesPage
   alias PhoenixHologramWeb.Hologram.Pages.PlayerPage
 
   route "/admin/movies/:id"
+
+  middleware RequireSuperuser
   param :id, :integer
 
   layout PhoenixHologramWeb.Hologram.Layouts.DefaultLayout

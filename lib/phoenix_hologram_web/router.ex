@@ -14,6 +14,10 @@ defmodule PhoenixHologramWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :require_superuser do
+    plug PhoenixHologramWeb.Plugs.RequireSuperuser
+  end
+
   scope "/", PhoenixHologramWeb do
     pipe_through :browser
 
@@ -22,6 +26,11 @@ defmodule PhoenixHologramWeb.Router do
     get "/premiere/videos/:id/download", VideoController, :download
     get "/premiere/videos/:id/download/:part", VideoController, :download_chunk
     get "/premiere/videos/:id/play/:part", VideoController, :play_chunk
+  end
+
+  scope "/", PhoenixHologramWeb do
+    pipe_through [:browser, :require_superuser]
+
     get "/admin/faces/:id/thumbnail", FaceThumbnailController, :show
     get "/admin/analytics/export.csv", AdminAnalyticsCsvController, :export
   end

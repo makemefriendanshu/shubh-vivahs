@@ -1,18 +1,22 @@
 defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
   @moduledoc """
-  Visual "my account" dashboard only, shown with sample data (Rahul &
-  Priya, a 65%-curated timeline) since there is no user/account system
-  in the app yet — nothing here is tied to a real logged-in couple.
+  "My account" dashboard, gated behind `RequireAuthenticatedUser` — an
+  anonymous visitor is redirected to LoginPage before this ever renders.
+  The signed-in identity (name/email, Log Out) is real, backed by
+  `PhoenixHologram.Accounts`; the wedding-journey content below it (a
+  65%-curated timeline, sample uploaded videos) is still sample data,
+  since there is no per-couple wedding/event data model in the app yet.
   Buttons that have a genuine destination in the app today (Edit Event
   Details, Pricing, Generate Shareable Link, Invite Team) link there
   for real; the rest ("View Timeline Preview") are decorative, matching
-  how LoginPage/RegisterPage/PricingPage handle features with no
-  backend yet.
+  how PricingPage handles features with no backend yet.
   """
 
   use Hologram.Page
+  use Hologram.JS
 
   alias Hologram.UI.Link
+  alias PhoenixHologramWeb.Hologram.Middleware.RequireAuthenticatedUser
   alias PhoenixHologramWeb.Hologram.Pages.EditEventDetailsPage
   alias PhoenixHologramWeb.Hologram.Pages.GenerateLinkPage
   alias PhoenixHologramWeb.Hologram.Pages.InviteTeamPage
@@ -21,7 +25,39 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
 
   route "/dashboard"
 
+  middleware RequireAuthenticatedUser
+
   layout PhoenixHologramWeb.Hologram.Layouts.DefaultLayout
+
+  def init(_params, component, server) do
+    # Extracted into plain strings rather than putting the raw
+    # `Accounts.User` Ecto struct into template state — that duplicated
+    # the email on the client after hydration (worked fine in the initial
+    # server-rendered HTML, so it's a client-side quirk specific to
+    # rendering Ecto struct fields, not present with plain maps/strings
+    # elsewhere in this app).
+    user = get_stash(server, :current_user)
+    put_state(component, current_user_name: user.name, current_user_email: user.email)
+  end
+
+  def action(:log_out_clicked, _params, component) do
+    put_command(component, :log_out)
+  end
+
+  # A real browser navigation (not put_page/Link) to "/" — matching how the
+  # rest of this app always reaches HomePage via a plain `<a href="/">`
+  # (see DefaultLayout's logo and "Home" links) rather than client-side
+  # SPA navigation, which doesn't reliably handle the root route.
+  def action(:logged_out, _params, component) do
+    JS.exec("window.location.href = '/';")
+    component
+  end
+
+  def command(:log_out, _params, server) do
+    server
+    |> delete_user_id()
+    |> put_action(:logged_out)
+  end
 
   def template do
     ~HOLO"""
@@ -29,7 +65,8 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
       <div class="max-w-3xl mx-auto">
         <div class="flex items-center justify-center gap-2 mb-4">
           <span class="hero-user-circle w-4 h-4 text-base-content/50"></span>
-          <span class="text-xs text-base-content/60">Signed in as Rahul P. &amp; Priya S. (sample account)</span>
+          <span class="text-xs text-base-content/60">Signed in as {@current_user_name} ({@current_user_email})</span>
+          <button type="button" $click="log_out_clicked" class="text-xs link link-primary">Log Out</button>
         </div>
 
         <div class="flex items-center justify-center gap-3 mb-1">
@@ -38,7 +75,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
             <circle cx="10" cy="10" r="2.5" fill="currentColor" stroke="none" opacity="0.55" />
           </svg>
           <h1 class="font-display text-xl sm:text-3xl text-center">
-            Rahul &amp; Priya's Wedding Journey
+            {@current_user_name}'s Wedding Journey
           </h1>
           <svg viewBox="0 0 24 40" class="w-4 h-8 text-primary/70 -scale-x-100" fill="none" stroke="currentColor" stroke-width="1.2">
             <path d="M12 2c-6 6-6 20 0 36" />
@@ -46,7 +83,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
           </svg>
         </div>
         <p class="text-center text-sm text-base-content/60 mb-2">
-          A preview of what every couple's dashboard will look like.
+          A preview of what every couple's dashboard will look like — the wedding timeline below is sample content.
         </p>
         <div class="gold-divider w-24 mx-auto mb-8"></div>
 
