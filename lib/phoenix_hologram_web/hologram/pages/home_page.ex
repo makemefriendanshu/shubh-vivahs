@@ -35,6 +35,8 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
     |> put_state(:name, "")
     |> put_state(:email, "")
     |> put_state(:password, "")
+    |> put_state(:phone, "")
+    |> put_state(:wedding_date, "")
     |> put_state(:auth_error, nil)
     |> put_state(:auth_submitting?, false)
   end
@@ -92,6 +94,14 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
     put_state(component, password: params.event.value, auth_error: nil)
   end
 
+  def action(:update_phone, params, component) do
+    put_state(component, phone: params.event.value, auth_error: nil)
+  end
+
+  def action(:update_wedding_date, params, component) do
+    put_state(component, wedding_date: params.event.value, auth_error: nil)
+  end
+
   def action(:login_submit_clicked, _params, component) do
     email = String.trim(component.state.email)
     password = component.state.password
@@ -120,7 +130,13 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
       true ->
         component
         |> put_state(auth_submitting?: true, auth_error: nil)
-        |> put_command(:register, name: name, email: email, password: password)
+        |> put_command(:register,
+          name: name,
+          email: email,
+          password: password,
+          phone: blank_to_nil(component.state.phone),
+          wedding_date: blank_to_nil(component.state.wedding_date)
+        )
     end
   end
 
@@ -148,8 +164,8 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
     end
   end
 
-  def command(:register, %{name: name, email: email, password: password}, server) do
-    case Accounts.register_user(%{name: name, email: email, password: password}) do
+  def command(:register, params, server) do
+    case Accounts.register_user(params) do
       {:ok, user} ->
         server
         |> put_user_id(user.id)
@@ -167,6 +183,9 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
       "Please check your details and try again."
     end
   end
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(value), do: value
 
   def template do
     ~HOLO"""
@@ -382,6 +401,23 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
                   placeholder="At least 8 characters"
                   value={@password}
                   $change="update_password"
+                  class="input input-bordered w-full"
+                />
+
+                <span class="text-xs text-base-content/60 mb-1 mt-4">Phone Number (Optional)</span>
+                <input
+                  type="tel"
+                  placeholder="Your phone number"
+                  value={@phone}
+                  $change="update_phone"
+                  class="input input-bordered w-full"
+                />
+
+                <span class="text-xs text-base-content/60 mb-1 mt-4">Wedding Date (Optional)</span>
+                <input
+                  type="date"
+                  value={@wedding_date}
+                  $change="update_wedding_date"
                   $key_down.enter="register_submit_clicked"
                   class="input input-bordered w-full"
                 />

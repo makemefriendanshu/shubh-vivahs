@@ -1,10 +1,18 @@
 defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
   @moduledoc """
-  Real account creation: submits name/email/password to
-  `command(:register, ...)`, which creates a `PhoenixHologram.Accounts.User`
-  (never superuser — see `Accounts.register_user/1`) and, on success, logs
-  the new account in via `put_user_id/2` before navigating to
-  DashboardPage. `LoginPage` is the counterpart for an existing account.
+  Real account creation: submits name/email/password plus the optional
+  phone/wedding date fields to `command(:register, ...)`, which creates
+  a `PhoenixHologram.Accounts.User` (never superuser — see
+  `Accounts.register_user/1`) and, on success, logs the new account in
+  via `put_user_id/2` before navigating to DashboardPage. The two
+  optional fields are blank-to-nil before being sent (see
+  `blank_to_nil/1`) so an empty date input doesn't fail `Ecto.Date`
+  casting. There's no profile photo field here — real upload needs an
+  existing account to attach the file to (see AccountSettingsPage /
+  `PhoenixHologramWeb.AccountAvatarController`), so that's done after
+  registering, not during it. Every field here is also editable later
+  on AccountSettingsPage. `LoginPage` is the counterpart for an
+  existing account.
   """
 
   use Hologram.Page
@@ -23,6 +31,8 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
     |> put_state(:name, "")
     |> put_state(:email, "")
     |> put_state(:password, "")
+    |> put_state(:phone, "")
+    |> put_state(:wedding_date, "")
     |> put_state(:error, nil)
     |> put_state(:submitting?, false)
   end
@@ -37,6 +47,14 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
 
   def action(:update_password, params, component) do
     put_state(component, password: params.event.value, error: nil)
+  end
+
+  def action(:update_phone, params, component) do
+    put_state(component, phone: params.event.value, error: nil)
+  end
+
+  def action(:update_wedding_date, params, component) do
+    put_state(component, wedding_date: params.event.value, error: nil)
   end
 
   def action(:submit_clicked, _params, component) do
@@ -54,7 +72,13 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
       true ->
         component
         |> put_state(submitting?: true, error: nil)
-        |> put_command(:register, name: name, email: email, password: password)
+        |> put_command(:register,
+          name: name,
+          email: email,
+          password: password,
+          phone: blank_to_nil(component.state.phone),
+          wedding_date: blank_to_nil(component.state.wedding_date)
+        )
     end
   end
 
@@ -70,8 +94,8 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
     put_state(component, submitting?: false, error: params.message)
   end
 
-  def command(:register, %{name: name, email: email, password: password}, server) do
-    case Accounts.register_user(%{name: name, email: email, password: password}) do
+  def command(:register, params, server) do
+    case Accounts.register_user(params) do
       {:ok, user} ->
         server
         |> put_user_id(user.id)
@@ -81,6 +105,9 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
         put_action(server, :register_failed, message: error_message(changeset))
     end
   end
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(value), do: value
 
   defp error_message(changeset) do
     if Keyword.has_key?(changeset.errors, :email) do
@@ -137,6 +164,23 @@ defmodule PhoenixHologramWeb.Hologram.Pages.RegisterPage do
               placeholder="At least 8 characters"
               value={@password}
               $change="update_password"
+              class="input input-bordered w-full"
+            />
+
+            <span class="text-xs text-base-content/60 mb-1 mt-4">Phone Number (Optional)</span>
+            <input
+              type="tel"
+              placeholder="Your phone number"
+              value={@phone}
+              $change="update_phone"
+              class="input input-bordered w-full"
+            />
+
+            <span class="text-xs text-base-content/60 mb-1 mt-4">Wedding Date (Optional)</span>
+            <input
+              type="date"
+              value={@wedding_date}
+              $change="update_wedding_date"
               $key_down.enter="submit_clicked"
               class="input input-bordered w-full"
             />
