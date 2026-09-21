@@ -40,6 +40,31 @@ defmodule PhoenixHologram.Accounts do
 
   def get_user(id), do: Repo.get(User, id)
 
+  @doc "Updates a signed-in user's own name/email, from AccountSettingsPage. Returns `{:ok, user}` or `{:error, changeset}`."
+  def update_profile(%User{} = user, attrs) do
+    user
+    |> User.profile_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Changes a signed-in user's own password, from AccountSettingsPage —
+  verifies `current_password` first. Returns `{:ok, user}`,
+  `{:error, :invalid_current_password}`, or `{:error, changeset}`.
+  """
+  def update_password(%User{} = user, current_password, new_password) do
+    if Pbkdf2.verify_pass(current_password, user.hashed_password) do
+      user
+      |> User.password_changeset(%{password: new_password})
+      |> Repo.update()
+    else
+      {:error, :invalid_current_password}
+    end
+  end
+
   def superuser?(%User{is_superuser: true}), do: true
   def superuser?(_user), do: false
+
+  @doc "True for any account that should see Premium features unlocked. Superusers get this for free; there is no separate paid-plan field yet (see PaymentStore/PromoRequests for the payment-based unlock path non-superusers still go through)."
+  def premium?(user), do: superuser?(user)
 end
