@@ -63,6 +63,9 @@ npm-debug.log
 /priv/face_detection/movie_thumbnails/
 /priv/face_detection/movie_metadata/
 
+# User-uploaded profile photos (AccountAvatarController/AvatarUpload).
+/priv/avatars/
+
 Gemini_Generated_Image_opnk92opnk92opnk.png
 WhatsApp Image 2026-08-22 at 11.30.53 PM.jpeg
 logo.jpeg
