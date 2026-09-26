@@ -1,6 +1,10 @@
-# Phoenix Hologram
+# shubh-vivahs
 
 Elixir web app: Phoenix backend + [Hologram](https://www.hologram.page/) frontend (compiles Elixir to JS, no separate JS framework). Built additively, one working feature at a time.
+
+## What the site does
+
+ShubhVivahs.com is a digital wedding-memory platform: a couple's wedding video is ingested and run through face-detection/clustering, then guests can browse a Premiere Hall of scenes, vote live on "who's in focus" per scene, comment, like, and watch view counts — all backed by an admin scene browser for naming faces and curating the movie listing. Around that pipeline sits a marketing/pricing site (Admin View bands, a real UPI-payment + admin-reviewed free-access flow) and a set of visual-only account pages (login/register/dashboard/upload/share/invite-team) previewing where accounts and self-serve uploads are headed next.
 
 ## Status
 
@@ -12,7 +16,6 @@ Elixir web app: Phoenix backend + [Hologram](https://www.hologram.page/) fronten
 
 - Site: https://shubhvivahs.com
 - [Jira project](https://home.atlassian.com/o/a7222d2d-be5e-4578-b4c9-32861c2cc4c5/s/711a8a41-4bbd-40db-8c37-f122f871ce2f/project/VSZJZPCZ-1)
-- [Jira goal](https://home.atlassian.com/o/a7222d2d-be5e-4578-b4c9-32861c2cc4c5/s/711a8a41-4bbd-40db-8c37-f122f871ce2f/goal/VSZJZPCZ-23/about)
 
 ## Stack
 

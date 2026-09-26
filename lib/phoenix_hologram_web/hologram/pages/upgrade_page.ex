@@ -40,12 +40,21 @@ defmodule PhoenixHologramWeb.Hologram.Pages.UpgradePage do
   what actually grants the tier, through the exact same PaymentStore +
   realtime broadcast path a real UPI payment uses, so an approved
   request is indistinguishable from a payment to the logic above.
+
+  A logged-in superuser (`Accounts.premium?/1`) is treated as already
+  unlocked for every tier, same as a confirmed payment or an approved
+  promo request — see `@premium?` in `init/3` and `already_unlocked?/4`.
+  This page stays reachable while logged out (no
+  `RequireAuthenticatedUser` middleware), so the current user is looked
+  up directly from `server.user_id` rather than via that middleware's
+  stash, and is simply `nil` for an anonymous visitor.
   """
 
   use Hologram.Page
   use Hologram.JS
 
   alias Hologram.UI.Link
+  alias PhoenixHologram.Accounts
   alias PhoenixHologramWeb.Hologram.Pages.AdminMoviesPage
   alias PhoenixHologramWeb.Hologram.Pages.DashboardPage
   alias PhoenixHologramWeb.Hologram.Pages.HowItWorksPage
@@ -102,8 +111,11 @@ defmodule PhoenixHologramWeb.Hologram.Pages.UpgradePage do
   def amount_tiers, do: @amount_tiers
 
   def init(_params, component, server) do
+    user = server.user_id && Accounts.get_user(server.user_id)
+
     component =
       component
+      |> put_state(:premium?, Accounts.premium?(user))
       |> put_state(:admin_steps, @admin_steps)
       |> put_state(:amount_tiers, @amount_tiers)
       |> put_state(:band_plans, @band_plans)
@@ -340,12 +352,15 @@ defmodule PhoenixHologramWeb.Hologram.Pages.UpgradePage do
     "upi://pay?pa=#{@upi_vpa}&pn=#{@upi_payee_name_encoded}&am=#{amount}&cu=INR"
   end
 
-  # True once the currently selected tier is unlocked by any means — an
-  # approved promo request or a confirmed payment (real UPI or a promo
-  # request approved while a different tier was selected, which also
-  # sets @paid_amount). Disables "Know the founder personally?" so a
-  # visitor who already has this tier isn't prompted to request it again.
-  defp already_unlocked?(promo_status, paid_amount, selected_amount) do
+  # True once the currently selected tier is unlocked by any means — a
+  # superuser account, an approved promo request, or a confirmed payment
+  # (real UPI or a promo request approved while a different tier was
+  # selected, which also sets @paid_amount). Disables "Know the founder
+  # personally?" so a visitor who already has this tier isn't prompted
+  # to request it again.
+  defp already_unlocked?(_promo_status, _paid_amount, _selected_amount, true = _premium?), do: true
+
+  defp already_unlocked?(promo_status, paid_amount, selected_amount, false = _premium?) do
     promo_status == "approved" or paid_amount == selected_amount
   end
 
@@ -370,12 +385,21 @@ defmodule PhoenixHologramWeb.Hologram.Pages.UpgradePage do
           Upgrading unlocks Admin View on your film — here's what that gives you.
         </p>
 
-        <div class="text-center mb-8">
-          <a href="#pay" class="btn btn-primary gap-2">
-            <span class="hero-lock-open w-4 h-4"></span>
-            Unlock Legacy Features Now
-          </a>
-        </div>
+        {%if @premium?}
+          <div class="text-center mb-8">
+            <span class="badge badge-success badge-lg gap-1">
+              <span class="hero-check-badge w-4 h-4"></span>
+              Premium Unlocked — Superuser Account
+            </span>
+          </div>
+        {%else}
+          <div class="text-center mb-8">
+            <a href="#pay" class="btn btn-primary gap-2">
+              <span class="hero-lock-open w-4 h-4"></span>
+              Unlock Legacy Features Now
+            </a>
+          </div>
+        {/if}
 
         <h2 class="font-display text-lg text-center mb-4 badge badge-lg bg-secondary text-secondary-content border-secondary px-6 py-4 w-full">
           The Admin View
@@ -492,7 +516,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.UpgradePage do
 
             <p class="font-display text-sm">Know the founder personally?</p>
             <p class="text-xs text-base-content/50 mb-2 max-w-xs">
-              {%if already_unlocked?(@promo_status, @paid_amount, @selected_amount)}
+              {%if already_unlocked?(@promo_status, @paid_amount, @selected_amount, @premium?)}
                 This tier is already unlocked — no need to request free access too.
               {%else}
                 Describe your relation and request free access to this tier — subject to the founder's review, not automatic.
@@ -503,7 +527,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.UpgradePage do
               value={@promo_description}
               placeholder="e.g. cousin, college roommate + roll number"
               rows="2"
-              disabled={already_unlocked?(@promo_status, @paid_amount, @selected_amount)}
+              disabled={already_unlocked?(@promo_status, @paid_amount, @selected_amount, @premium?)}
               class="textarea textarea-bordered w-full max-w-xs text-sm"
             />
             {%if @promo_error?}
@@ -511,7 +535,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.UpgradePage do
             {/if}
             <button
               $click={:generate_promo_code_clicked, amount: @selected_amount}
-              disabled={already_unlocked?(@promo_status, @paid_amount, @selected_amount)}
+              disabled={already_unlocked?(@promo_status, @paid_amount, @selected_amount, @premium?)}
               class="btn btn-outline btn-sm gap-2 mt-2"
             >
               <span class="hero-gift w-4 h-4"></span>

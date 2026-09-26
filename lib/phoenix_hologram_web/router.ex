@@ -10,8 +10,31 @@ defmodule PhoenixHologramWeb.Router do
     plug :put_secure_browser_headers
   end
 
+  # Same as :browser minus :protect_from_forgery — for POST routes
+  # (AccountAvatarController's and VideoUploadController's uploads)
+  # whose forms are rendered by a Hologram page rather than this router,
+  # so they were never able to populate Plug.CSRFProtection's own
+  # session key. Those routes validate Hologram's own session-bound
+  # CSRF token manually instead — see AccountAvatarController's
+  # moduledoc.
+  pipeline :browser_no_csrf do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {PhoenixHologramWeb.Layouts, :root}
+    plug :put_secure_browser_headers
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
+  end
+
+  pipeline :require_superuser do
+    plug PhoenixHologramWeb.Plugs.RequireSuperuser
+  end
+
+  pipeline :require_authenticated_user do
+    plug PhoenixHologramWeb.Plugs.RequireAuthenticatedUser
   end
 
   scope "/", PhoenixHologramWeb do
@@ -22,8 +45,22 @@ defmodule PhoenixHologramWeb.Router do
     get "/premiere/videos/:id/download", VideoController, :download
     get "/premiere/videos/:id/download/:part", VideoController, :download_chunk
     get "/premiere/videos/:id/play/:part", VideoController, :play_chunk
+    get "/account/avatar/:user_id", AccountAvatarController, :show
+  end
+
+  scope "/", PhoenixHologramWeb do
+    pipe_through [:browser, :require_superuser]
+
     get "/admin/faces/:id/thumbnail", FaceThumbnailController, :show
     get "/admin/analytics/export.csv", AdminAnalyticsCsvController, :export
+  end
+
+  scope "/", PhoenixHologramWeb do
+    pipe_through [:browser_no_csrf, :require_authenticated_user]
+
+    post "/account/avatar", AccountAvatarController, :create
+    post "/videos/upload/chunk", VideoUploadController, :create_chunk
+    post "/videos/upload/finalize", VideoUploadController, :finalize
   end
 
   # Other scopes may use custom stacks.

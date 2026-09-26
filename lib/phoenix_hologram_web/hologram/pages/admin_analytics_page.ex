@@ -16,6 +16,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminAnalyticsPage do
 
   alias Hologram.UI.Link
   alias PhoenixHologram.Analytics
+  alias PhoenixHologramWeb.Hologram.Middleware.RequireSuperuser
   alias PhoenixHologramWeb.Hologram.Pages.AdminMoviesPage
 
   @donut_colors [
@@ -27,6 +28,8 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminAnalyticsPage do
   @donut_other_color "var(--color-base-300, #d8cbb0)"
 
   route "/admin/analytics"
+
+  middleware RequireSuperuser
 
   layout PhoenixHologramWeb.Hologram.Layouts.DefaultLayout
 
