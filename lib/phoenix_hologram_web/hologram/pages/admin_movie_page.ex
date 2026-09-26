@@ -846,7 +846,19 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
             <div class="card card-stock shadow-xl">
               <div class="card-body">
                 <p class="text-base-content/70">
-                  No faces detected yet. Run `mix face_detection.ingest` for this movie first.
+                  {%if @movie.status == "processing"}
+                    Curation is running now — check back in a bit.
+                  {%else}
+                    {%if @movie.status == "failed"}
+                      Curation failed for this video. Try re-uploading it, or run `mix face_detection.ingest` again.
+                    {%else}
+                      {%if @movie.status == "done"}
+                        No faces were found in this video.
+                      {%else}
+                        Not curated yet. Run `mix face_detection.ingest` for this movie first.
+                      {/if}
+                    {/if}
+                  {/if}
                 </p>
               </div>
             </div>
