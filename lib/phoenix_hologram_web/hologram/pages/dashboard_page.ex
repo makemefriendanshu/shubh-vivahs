@@ -11,16 +11,22 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
   ingested films, so a couple's "wedding journey" is that catalog's
   real curation state: `%` complete is `done` movies over the total,
   and the video list shows each movie's actual `status`
-  (pending/processing/done/failed), not sample data. Superusers see
+  (pending/processing/done/failed), not sample data — and it's live: this
+  page subscribes to the `:movies_changed` broadcast channel
+  (`put_subscription/2`) that `PhoenixHologram.VideoUpload` fires once a
+  background ingestion finishes, so a Pending/Processing badge flips to
+  Curated/Failed on its own, no manual reload needed. Superusers see
   Premium as already unlocked (`Accounts.premium?/1`) instead of the
-  "Get Premium" upsell. The uploaded-videos card sits half-width next
-  to a real "Account Settings" card — every real field on the account
-  (photo, name, email, phone, wedding date), plus a "Superuser" badge
-  and access-tier line when `Accounts.superuser?/1` is true (nothing shown
-  there for a regular account — no fake paid-tier names exist on the
-  `User` schema, so this only ever states the one real tier distinction
-  the app has: superuser vs. not) — with a link to the fully wired
-  AccountSettingsPage for editing. Buttons that have a genuine
+  "Get Premium" upsell. A half-width "Account Settings" card is the first
+  card in the curation grid (stacks full-width above the rest on mobile,
+  matching how the other cards in that grid already respond) — every
+  real field on the account (photo, name, email, phone, wedding date),
+  plus a "Superuser" badge and access-tier line when
+  `Accounts.superuser?/1` is true (nothing shown there for a regular
+  account — no fake paid-tier names exist on the `User` schema, so this
+  only ever states the one real tier distinction the app has: superuser
+  vs. not) — with a link to the fully wired AccountSettingsPage for
+  editing. Buttons that have a genuine
   destination in the app today
   (Edit Event Details, Pricing, Generate Shareable Link, Invite Team)
   link there for real; the rest ("View Timeline Preview") are
@@ -57,26 +63,50 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
     # rendering Ecto struct fields, not present with plain maps/strings
     # elsewhere in this app).
     user = get_stash(server, :current_user)
-    movies = FaceDetection.list_movies_ordered()
-    total_count = length(movies)
-    done_count = Enum.count(movies, &(&1.status == "done"))
-    completion_percentage = if total_count > 0, do: round(done_count / total_count * 100), else: 0
-    next_movie = Enum.find(movies, &(&1.status != "done"))
+    server = put_subscription(server, :movies_changed)
 
+    component =
+      put_state(
+        component,
+        [
+          current_user_name: user.name,
+          current_user_email: user.email,
+          current_user_phone: user.phone,
+          current_user_avatar_url: user.avatar_url,
+          current_user_wedding_date: format_date(user.wedding_date),
+          superuser?: Accounts.superuser?(user),
+          premium?: Accounts.premium?(user)
+        ] ++ movie_stats()
+      )
+
+    {component, server}
+  end
+
+  # Dispatched via Hologram.Realtime.broadcast_action/2 from
+  # PhoenixHologram.VideoUpload once a background ingestion finishes (see
+  # its moduledoc) — every open Dashboard tab re-fetches the movie catalog
+  # instead of showing a stale "Pending Review"/"Processing" badge until
+  # the couple happens to reload the page.
+  def action(:movie_ingested, _params, component) do
+    put_command(component, :refresh_movie_stats)
+  end
+
+  def action(:movie_stats_refreshed, params, component) do
     put_state(component,
-      current_user_name: user.name,
-      current_user_email: user.email,
-      current_user_phone: user.phone,
-      current_user_avatar_url: user.avatar_url,
-      current_user_wedding_date: format_date(user.wedding_date),
-      superuser?: Accounts.superuser?(user),
-      premium?: Accounts.premium?(user),
-      completion_percentage: completion_percentage,
-      done_count: done_count,
-      total_count: total_count,
-      next_movie_title: next_movie && movie_title(next_movie),
-      movies: Enum.map(movies, &movie_view/1)
+      completion_percentage: params.completion_percentage,
+      done_count: params.done_count,
+      total_count: params.total_count,
+      next_movie_title: params.next_movie_title,
+      movies: params.movies
     )
+  end
+
+  # Fallback safety net in case the broadcast above is ever missed (e.g.
+  # the realtime connection dropped and reconnected in between) - fires
+  # every 15s from the polling script near the template's end. Matches
+  # AdminAnalyticsPage's :auto_refresh pattern.
+  def action(:movies_poll, _params, component) do
+    put_command(component, :refresh_movie_stats)
   end
 
   def action(:log_out_clicked, _params, component) do
@@ -92,10 +122,30 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
     component
   end
 
+  def command(:refresh_movie_stats, _params, server) do
+    put_action(server, :movie_stats_refreshed, movie_stats())
+  end
+
   def command(:log_out, _params, server) do
     server
     |> delete_user_id()
     |> put_action(:logged_out)
+  end
+
+  defp movie_stats do
+    movies = FaceDetection.list_movies_ordered()
+    total_count = length(movies)
+    done_count = Enum.count(movies, &(&1.status == "done"))
+    completion_percentage = if total_count > 0, do: round(done_count / total_count * 100), else: 0
+    next_movie = Enum.find(movies, &(&1.status != "done"))
+
+    [
+      completion_percentage: completion_percentage,
+      done_count: done_count,
+      total_count: total_count,
+      next_movie_title: next_movie && movie_title(next_movie),
+      movies: Enum.map(movies, &movie_view/1)
+    ]
   end
 
   defp movie_view(movie) do
@@ -126,10 +176,12 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
     ~HOLO"""
     <div class="min-h-screen p-6">
       <div class="max-w-3xl mx-auto">
-        <div class="flex items-center justify-center gap-2 mb-4">
-          <span class="hero-user-circle w-4 h-4 text-base-content/50"></span>
-          <span class="text-xs text-base-content/60">Signed in as {@current_user_name} ({@current_user_email})</span>
-          <button type="button" $click="log_out_clicked" class="text-xs link link-primary">Log Out</button>
+        <div class="flex flex-col items-center gap-1 mb-4 sm:flex-row sm:justify-center sm:gap-2">
+          <span class="flex items-center gap-2 text-center">
+            <span class="hero-user-circle w-4 h-4 text-base-content/50 shrink-0"></span>
+            <span class="text-xs text-base-content/60 break-all">Signed in as {@current_user_name} ({@current_user_email})</span>
+          </span>
+          <button type="button" $click="log_out_clicked" class="text-xs link link-primary shrink-0">Log Out</button>
         </div>
 
         <div class="flex items-center justify-center gap-3 mb-1">
@@ -151,6 +203,57 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
         <div class="gold-divider w-24 mx-auto mb-8"></div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div class="card card-stock shadow-xl">
+            <div class="card-body">
+              <h2 class="font-display text-base uppercase tracking-wide text-center sm:text-left">Account Settings</h2>
+              <div class="flex flex-col items-center text-center gap-2 mt-2 sm:flex-row sm:items-center sm:text-left sm:gap-3">
+                {%if @current_user_avatar_url}
+                  <img src={@current_user_avatar_url} alt="Profile photo" class="w-12 h-12 rounded-full object-cover border-2 border-primary/40 shrink-0" />
+                {%else}
+                  <div class="w-12 h-12 rounded-full bg-base-300 border-2 border-primary/20 flex items-center justify-center shrink-0">
+                    <span class="hero-user w-6 h-6 text-base-content/40"></span>
+                  </div>
+                {/if}
+                <div>
+                  <p class="text-sm text-base-content/70 flex flex-wrap items-center justify-center gap-1.5 sm:justify-start">
+                    {@current_user_name}
+                    {%if @superuser?}
+                      <span class="badge badge-secondary badge-sm gap-1">
+                        <span class="hero-shield-check w-3 h-3"></span>
+                        Superuser
+                      </span>
+                    {/if}
+                  </p>
+                  <p class="text-sm text-base-content/70 break-all">{@current_user_email}</p>
+                </div>
+              </div>
+              {%if @current_user_phone}
+                <p class="text-sm text-base-content/70 mt-2 flex items-center justify-center gap-1.5 sm:justify-start">
+                  <span class="hero-phone w-3.5 h-3.5 text-base-content/40 shrink-0"></span>
+                  {@current_user_phone}
+                </p>
+              {/if}
+              {%if @current_user_wedding_date}
+                <p class="text-sm text-base-content/70 mt-1 flex items-center justify-center gap-1.5 sm:justify-start">
+                  <span class="hero-calendar w-3.5 h-3.5 text-base-content/40 shrink-0"></span>
+                  {@current_user_wedding_date}
+                </p>
+              {/if}
+              {%if @superuser?}
+                <p class="text-sm text-base-content/70 mt-1 flex items-center justify-center gap-1.5 sm:justify-start">
+                  <span class="hero-sparkles w-3.5 h-3.5 text-base-content/40 shrink-0"></span>
+                  Access Tier: All Features Unlocked (Superuser)
+                </p>
+              {/if}
+              <div class="mt-4 flex justify-center sm:justify-start">
+                <Link to={AccountSettingsPage} class="btn btn-secondary btn-sm gap-2">
+                  <span class="hero-cog-6-tooth w-4 h-4"></span>
+                  Edit Account Settings
+                </Link>
+              </div>
+            </div>
+          </div>
+
           <div class="card card-stock shadow-xl">
             <div class="card-body items-center text-center">
               <div class="radial-progress text-primary" style={"--value:#{@completion_percentage}; --size:8rem; --thickness:0.7rem;"} role="progressbar">
@@ -185,12 +288,28 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
               {/if}
             </div>
           </div>
-        </div>
 
-        <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div class="card card-stock shadow-xl">
             <div class="card-body">
               <h2 class="font-display text-base uppercase tracking-wide">My Uploaded Event Videos</h2>
+              <script>
+                {%raw}
+                (function () {
+                  if (window.__dashboardMoviesPollAttached) { return; }
+                  window.__dashboardMoviesPollAttached = true;
+
+                  // The :movie_ingested broadcast (see this page's moduledoc)
+                  // updates this list within about a second of ingestion
+                  // finishing — this is only a fallback in case one is ever
+                  // missed (e.g. the realtime connection dropped and
+                  // reconnected in between), so it doesn't need to be
+                  // frequent.
+                  setInterval(function () {
+                    Hologram.dispatchAction('movies_poll', 'page', {});
+                  }, 15000);
+                })();
+                {/raw}
+              </script>
               {%if @movies == []}
                 <p class="text-sm text-base-content/60 mt-2">No videos uploaded yet.</p>
               {%else}
@@ -207,57 +326,6 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
                 <Link to={UploadPage} class="btn btn-primary btn-sm gap-2">
                   <span class="hero-cloud-arrow-up w-4 h-4"></span>
                   Upload More Videos
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          <div class="card card-stock shadow-xl">
-            <div class="card-body">
-              <h2 class="font-display text-base uppercase tracking-wide">Account Settings</h2>
-              <div class="flex items-center gap-3 mt-2">
-                {%if @current_user_avatar_url}
-                  <img src={@current_user_avatar_url} alt="Profile photo" class="w-12 h-12 rounded-full object-cover border-2 border-primary/40 shrink-0" />
-                {%else}
-                  <div class="w-12 h-12 rounded-full bg-base-300 border-2 border-primary/20 flex items-center justify-center shrink-0">
-                    <span class="hero-user w-6 h-6 text-base-content/40"></span>
-                  </div>
-                {/if}
-                <div>
-                  <p class="text-sm text-base-content/70 flex items-center gap-1.5">
-                    {@current_user_name}
-                    {%if @superuser?}
-                      <span class="badge badge-secondary badge-sm gap-1">
-                        <span class="hero-shield-check w-3 h-3"></span>
-                        Superuser
-                      </span>
-                    {/if}
-                  </p>
-                  <p class="text-sm text-base-content/70">{@current_user_email}</p>
-                </div>
-              </div>
-              {%if @current_user_phone}
-                <p class="text-sm text-base-content/70 mt-2 flex items-center gap-1.5">
-                  <span class="hero-phone w-3.5 h-3.5 text-base-content/40"></span>
-                  {@current_user_phone}
-                </p>
-              {/if}
-              {%if @current_user_wedding_date}
-                <p class="text-sm text-base-content/70 mt-1 flex items-center gap-1.5">
-                  <span class="hero-calendar w-3.5 h-3.5 text-base-content/40"></span>
-                  {@current_user_wedding_date}
-                </p>
-              {/if}
-              {%if @superuser?}
-                <p class="text-sm text-base-content/70 mt-1 flex items-center gap-1.5">
-                  <span class="hero-sparkles w-3.5 h-3.5 text-base-content/40"></span>
-                  Access Tier: All Features Unlocked (Superuser)
-                </p>
-              {/if}
-              <div class="mt-4">
-                <Link to={AccountSettingsPage} class="btn btn-secondary btn-sm gap-2">
-                  <span class="hero-cog-6-tooth w-4 h-4"></span>
-                  Edit Account Settings
                 </Link>
               </div>
             </div>
