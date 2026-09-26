@@ -30,14 +30,63 @@ defmodule PhoenixHologram.FaceDetection.ModelServer do
   @impl true
   def handle_call({:detect_faces, image_path}, _from, state) do
     with {:ok, state} <- ensure_recognizer(state),
-         %Evision.Mat{} = img <- Evision.imread(image_path),
-         {h, w, _} <- Evision.Mat.shape(img),
-         {:ok, state} <- ensure_detector(state, {w, h}) do
-      {:reply, {:ok, detect(state, img)}, state}
+         %Evision.Mat{} = img <- Evision.imread(image_path) do
+      {faces, state} = detect_with_rotation_fallback(state, img)
+      {:reply, {:ok, faces}, state}
     else
       {:error, reason} -> {:reply, {:error, reason}, state}
     end
   end
+
+  # (degrees, cv2 rotate code or nil for "as-is") — tried in this order.
+  @rotations [
+    {0, nil},
+    {90, Evision.Constant.cv_ROTATE_90_CLOCKWISE()},
+    {180, Evision.Constant.cv_ROTATE_180()},
+    {270, Evision.Constant.cv_ROTATE_90_COUNTERCLOCKWISE()}
+  ]
+
+  # YuNet expects roughly upright faces. A phone video shot sideways (no
+  # `rotate` tag, and no display-matrix side data either — confirmed
+  # against a real sideways clip that this ffmpeg build gives no rotation
+  # hint for at all) would otherwise silently detect zero faces on every
+  # single frame. Try the frame as-is first — free for the common case,
+  # already-upright footage — and only pay for 90/180/270 rotated
+  # re-attempts when that comes up empty. A hit's bbox gets remapped back
+  # into the *original* frame's coordinate space before returning: every
+  # downstream consumer (FaceThumbnail, scene bbox overlays) re-reads
+  # that original, un-rotated frame, so a bbox found in a rotated copy is
+  # meaningless to them without this.
+  defp detect_with_rotation_fallback(state, img) do
+    {h, w, _} = Evision.Mat.shape(img)
+
+    Enum.reduce_while(@rotations, {[], state}, fn {degrees, code}, {_faces, state} ->
+      rotated = if code, do: Evision.rotate(img, code), else: img
+      rotated_size = if code in [nil, Evision.Constant.cv_ROTATE_180()], do: {w, h}, else: {h, w}
+
+      case ensure_detector(state, rotated_size) do
+        {:ok, state} ->
+          case detect(state, rotated) do
+            [] -> {:cont, {[], state}}
+            faces -> {:halt, {Enum.map(faces, &remap_bbox(&1, degrees, w, h)), state}}
+          end
+
+        {:error, _reason} ->
+          {:halt, {[], state}}
+      end
+    end)
+  end
+
+  defp remap_bbox(face, 0, _w, _h), do: face
+
+  defp remap_bbox(%{bbox: {bx, by, bw, bh}} = face, 180, w, h),
+    do: %{face | bbox: {w - (bx + bw), h - (by + bh), bw, bh}}
+
+  defp remap_bbox(%{bbox: {bx, by, bw, bh}} = face, 90, _w, h),
+    do: %{face | bbox: {by, h - bx - bw, bh, bw}}
+
+  defp remap_bbox(%{bbox: {bx, by, bw, bh}} = face, 270, w, _h),
+    do: %{face | bbox: {w - by - bh, bx, bh, bw}}
 
   defp detect(%{detector: detector, recognizer: recognizer}, img) do
     case Evision.FaceDetectorYN.detect(detector, img) do
@@ -88,9 +137,20 @@ defmodule PhoenixHologram.FaceDetection.ModelServer do
     {:ok, %{state | input_size: size}}
   end
 
+  # OpenCV's own default `score_threshold` (0.9) is tuned for clean,
+  # well-lit, front-facing photos — real wedding/event footage has small
+  # distant guests and close-up handheld shots that score well below
+  # that and were being silently dropped. Verified against real footage
+  # (a background wedding-entrance shot with distant guests, and a close
+  # -up baby video) that 0.5 recovers genuine faces without picking up
+  # obvious noise from faceless frames.
+  @score_threshold 0.5
+
   defp ensure_detector(state, {w, h} = size) do
     with {:ok, path} <- model_path(@yunet_model) do
-      detector = Evision.FaceDetectorYN.create(path, "", {w, h})
+      detector =
+        Evision.FaceDetectorYN.create(path, "", {w, h}, score_threshold: @score_threshold)
+
       {:ok, %{state | detector: detector, input_size: size}}
     end
   end
