@@ -57,9 +57,16 @@ defmodule PhoenixHologramWeb.Endpoint do
 
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # `:length` raised past Plug.Parsers' 8MB default to comfortably fit
+  # one VideoUploadController chunk (PhoenixHologram.VideoUpload.chunk_size/0,
+  # 40MB) plus multipart overhead — videos upload in chunks specifically
+  # so no single request ever needs to carry more than that, keeping
+  # every request well under proxy body-size caps like Cloudflare's
+  # 100MB limit regardless of this setting.
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
+    length: 50_000_000,
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride

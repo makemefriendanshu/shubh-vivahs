@@ -10,12 +10,13 @@ defmodule PhoenixHologramWeb.Router do
     plug :put_secure_browser_headers
   end
 
-  # Same as :browser minus :protect_from_forgery — for the one POST route
-  # (AccountAvatarController's upload) whose form is rendered by a
-  # Hologram page rather than this router, so it was never able to
-  # populate Plug.CSRFProtection's own session key. That route validates
-  # Hologram's own session-bound CSRF token manually instead — see
-  # AccountAvatarController's moduledoc.
+  # Same as :browser minus :protect_from_forgery — for POST routes
+  # (AccountAvatarController's and VideoUploadController's uploads)
+  # whose forms are rendered by a Hologram page rather than this router,
+  # so they were never able to populate Plug.CSRFProtection's own
+  # session key. Those routes validate Hologram's own session-bound
+  # CSRF token manually instead — see AccountAvatarController's
+  # moduledoc.
   pipeline :browser_no_csrf do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -58,6 +59,8 @@ defmodule PhoenixHologramWeb.Router do
     pipe_through [:browser_no_csrf, :require_authenticated_user]
 
     post "/account/avatar", AccountAvatarController, :create
+    post "/videos/upload/chunk", VideoUploadController, :create_chunk
+    post "/videos/upload/finalize", VideoUploadController, :finalize
   end
 
   # Other scopes may use custom stacks.

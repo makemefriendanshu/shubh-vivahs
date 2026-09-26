@@ -14,6 +14,7 @@ defmodule PhoenixHologram.Application do
       {Phoenix.PubSub, name: PhoenixHologram.PubSub},
       PhoenixHologram.FaceDetection.ModelServer,
       PhoenixHologram.PaymentStore,
+      {Task.Supervisor, name: PhoenixHologram.TaskSupervisor},
       # Start to serve requests, typically the last entry
       PhoenixHologramWeb.Endpoint
     ]
