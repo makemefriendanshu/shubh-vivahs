@@ -48,6 +48,9 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
 
     movie = movie_record && build_movie(movie_record)
 
+    label_drafts =
+      Map.new(faces, fn face -> {face.id, %{label: face.label || "", subtitle: face.subtitle || ""}} end)
+
     component =
       component
       |> put_state(:movie, movie)
@@ -59,6 +62,11 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
       |> put_state(:scene_boundaries_json, scene_boundaries_json(scenes_list))
       |> put_state(:current_preview_scene, nil)
       |> put_state(:scene_open, false)
+      |> put_state(:label_drafts, label_drafts)
+      |> put_state(:title_draft, (movie && movie.title) || "")
+      |> put_state(:description_draft, (movie && movie.description) || "")
+      |> put_state(:event_date_draft, (movie && movie.event_date_input) || "")
+      |> put_state(:location_draft, (movie && movie.location) || "")
 
     server = if movie, do: put_subscription(server, {:focus_votes, movie.id}), else: server
 
@@ -190,17 +198,101 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
     put_state(component, :scene_open, false)
   end
 
-  # Actions run on the client (compiled to browser JS) — they can't do
-  # database access, so this only extracts the form values and hands off
-  # to a command (server-side) to actually persist them.
+  # These edit panels used to be plain <form method="post" $submit={...}>
+  # elements with a type="submit" button — standard Hologram form
+  # handling. On this page that reliably failed in production: the native
+  # browser form submission would go through instead of Hologram's client
+  # JS intercepting it, and since Hologram's router treats any unmatched
+  # request (GET or POST) as a fresh page load (see Hologram.Router's
+  # catch-all `match _`), a real POST to this route just silently
+  # re-rendered the page from scratch, discarding the edit — "page
+  # reloads but edit fails", with no error anywhere to explain why. $click
+  # on a plain (non-submit) button sidesteps the browser's native form
+  # submission entirely, the same way the scene-preview and focus-vote
+  # clicks elsewhere on this page already do, so there is no native
+  # fallback path left for the browser to take. Each field's current text
+  # is tracked in state via $change (see the *_draft state below) since a
+  # plain $click handler has no event payload of its own to read it from.
+  def action(:update_title_draft, params, component) do
+    put_state(component, :title_draft, params.event.value)
+  end
+
+  def action(:save_movie_title, _params, component) do
+    title = blank_to_nil(component.state.title_draft)
+    put_command(component, :persist_movie_title, movie_id: component.state.movie.id, title: title)
+  end
+
+  def action(:movie_title_saved, params, component) do
+    JS.exec("""
+    const details = document.getElementById('rename-movie-details');
+    if (details) { details.open = false; }
+    """)
+
+    component
+    |> put_state(:movie, %{component.state.movie | title: params.title})
+    |> put_state(:title_draft, params.title)
+  end
+
+  def action(:update_description_draft, params, component) do
+    put_state(component, :description_draft, params.event.value)
+  end
+
+  def action(:update_event_date_draft, params, component) do
+    put_state(component, :event_date_draft, params.event.value)
+  end
+
+  def action(:update_location_draft, params, component) do
+    put_state(component, :location_draft, params.event.value)
+  end
+
+  def action(:save_movie_details, _params, component) do
+    put_command(component, :persist_movie_details,
+      movie_id: component.state.movie.id,
+      description: blank_to_nil(component.state.description_draft),
+      event_date: blank_to_nil(component.state.event_date_draft),
+      location: blank_to_nil(component.state.location_draft)
+    )
+  end
+
+  def action(:movie_details_saved, params, component) do
+    JS.exec("""
+    const details = document.getElementById('listing-details-details');
+    if (details) { details.open = false; }
+    """)
+
+    movie = %{
+      component.state.movie
+      | description: params.description,
+        event_date_input: params.event_date_input,
+        location: params.location
+    }
+
+    component
+    |> put_state(:movie, movie)
+    |> put_state(:description_draft, params.description || "")
+    |> put_state(:event_date_draft, params.event_date_input)
+    |> put_state(:location_draft, params.location || "")
+  end
+
+  def action(:update_label_draft, params, component) do
+    put_state(component, :label_drafts, put_draft_field(component, params.face_id, :label, params.event.value))
+  end
+
+  def action(:update_subtitle_draft, params, component) do
+    put_state(
+      component,
+      :label_drafts,
+      put_draft_field(component, params.face_id, :subtitle, params.event.value)
+    )
+  end
+
   def action(:save_label, params, component) do
-    label = blank_to_nil(params.event["label"])
-    subtitle = blank_to_nil(params.event["subtitle"])
+    draft = Map.get(component.state.label_drafts, params.face_id, %{label: "", subtitle: ""})
 
     put_command(component, :persist_label,
       face_id: params.face_id,
-      label: label,
-      subtitle: subtitle
+      label: blank_to_nil(draft.label),
+      subtitle: blank_to_nil(draft.subtitle)
     )
   end
 
@@ -219,46 +311,15 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
         end
       end)
 
-    put_state(component, :faces, faces)
-  end
+    label_drafts =
+      Map.put(component.state.label_drafts, params.face_id, %{
+        label: params.label || "",
+        subtitle: params.subtitle || ""
+      })
 
-  def action(:save_movie_title, params, component) do
-    title = blank_to_nil(params.event["title"])
-    put_command(component, :persist_movie_title, movie_id: params.movie_id, title: title)
-  end
-
-  def action(:movie_title_saved, params, component) do
-    JS.exec("""
-    const details = document.getElementById('rename-movie-details');
-    if (details) { details.open = false; }
-    """)
-
-    put_state(component, :movie, %{component.state.movie | title: params.title})
-  end
-
-  def action(:save_movie_details, params, component) do
-    put_command(component, :persist_movie_details,
-      movie_id: params.movie_id,
-      description: blank_to_nil(params.event["description"]),
-      event_date: blank_to_nil(params.event["event_date"]),
-      location: blank_to_nil(params.event["location"])
-    )
-  end
-
-  def action(:movie_details_saved, params, component) do
-    JS.exec("""
-    const details = document.getElementById('listing-details-details');
-    if (details) { details.open = false; }
-    """)
-
-    movie = %{
-      component.state.movie
-      | description: params.description,
-        event_date_input: params.event_date_input,
-        location: params.location
-    }
-
-    put_state(component, :movie, movie)
+    component
+    |> put_state(:faces, faces)
+    |> put_state(:label_drafts, label_drafts)
   end
 
   # Flips the clicked face's vote/count in the live preview panel right
@@ -539,6 +600,11 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(value), do: value
 
+  defp put_draft_field(component, face_id, field, value) do
+    draft = Map.get(component.state.label_drafts, face_id, %{label: "", subtitle: ""})
+    Map.put(component.state.label_drafts, face_id, Map.put(draft, field, value))
+  end
+
   # Matches the key the "Who's in focus?" panel looks scenes up by (see
   # PlayerPage) — an O(1) Map lookup when a scene preview is opened or a
   # focus-vote broadcast comes in, rather than a scan through every scene.
@@ -794,50 +860,47 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
               </Link>
               <details id="rename-movie-details" class="mt-2">
                 <summary class="text-xs cursor-pointer text-base-content/60">Rename movie</summary>
-                <form
-                  method="post"
-                  $submit={:save_movie_title, movie_id: @movie.id}
-                  class="flex gap-1 mt-1"
-                >
+                <div class="flex gap-1 mt-1">
                   <input
                     type="text"
-                    name="title"
-                    value={@movie.title || ""}
+                    value={@title_draft}
+                    $change="update_title_draft"
                     placeholder="Movie name"
                     class="input input-xs input-bordered w-full max-w-xs"
                   />
-                  <button type="submit" class="btn btn-xs btn-primary">Save</button>
-                </form>
+                  <button type="button" $click="save_movie_title" class="btn btn-xs btn-primary">
+                    Save
+                  </button>
+                </div>
               </details>
               <details id="listing-details-details" class="mt-2">
                 <summary class="text-xs cursor-pointer text-base-content/60">
                   Edit listing details
                 </summary>
-                <form
-                  method="post"
-                  $submit={:save_movie_details, movie_id: @movie.id}
-                  class="flex flex-col gap-1 mt-1 max-w-xs"
-                >
+                <div class="flex flex-col gap-1 mt-1 max-w-xs">
                   <textarea
-                    name="description"
+                    value={@description_draft}
+                    $change="update_description_draft"
                     placeholder="Blurb shown on the movie card"
                     class="textarea textarea-xs textarea-bordered w-full"
-                  >{@movie.description || ""}</textarea>
+                  />
                   <input
                     type="date"
-                    name="event_date"
-                    value={@movie.event_date_input}
+                    value={@event_date_draft}
+                    $change="update_event_date_draft"
                     class="input input-xs input-bordered w-full"
                   />
                   <input
                     type="text"
-                    name="location"
-                    value={@movie.location || ""}
+                    value={@location_draft}
+                    $change="update_location_draft"
                     placeholder="Location"
                     class="input input-xs input-bordered w-full"
                   />
-                  <button type="submit" class="btn btn-xs btn-primary">Save</button>
-                </form>
+                  <button type="button" $click="save_movie_details" class="btn btn-xs btn-primary">
+                    Save
+                  </button>
+                </div>
               </details>
             </div>
           </div>
@@ -1002,27 +1065,29 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviePage do
                         </div>
                         <details id={"label-details-#{face.id}"} class="w-full text-left">
                           <summary class="text-xs cursor-pointer text-base-content/60">Edit label</summary>
-                          <form
-                            method="post"
-                            $submit={:save_label, face_id: face.id}
-                            class="flex flex-col gap-1 mt-1"
-                          >
+                          <div class="flex flex-col gap-1 mt-1">
                             <input
                               type="text"
-                              name="label"
-                              value={face.label || ""}
+                              value={Map.get(@label_drafts, face.id, %{label: ""}).label}
+                              $change={:update_label_draft, face_id: face.id}
                               placeholder="Name"
                               class="input input-xs input-bordered w-full"
                             />
                             <input
                               type="text"
-                              name="subtitle"
-                              value={face.subtitle || ""}
+                              value={Map.get(@label_drafts, face.id, %{subtitle: ""}).subtitle}
+                              $change={:update_subtitle_draft, face_id: face.id}
                               placeholder="Subtitle"
                               class="input input-xs input-bordered w-full"
                             />
-                            <button type="submit" class="btn btn-xs btn-primary">Save</button>
-                          </form>
+                            <button
+                              type="button"
+                              $click={:save_label, face_id: face.id}
+                              class="btn btn-xs btn-primary"
+                            >
+                              Save
+                            </button>
+                          </div>
                         </details>
                       </div>
                     </div>
