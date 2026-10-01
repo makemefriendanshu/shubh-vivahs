@@ -214,6 +214,30 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
         <link rel="icon" type="image/png" href="/images/home-logo.png" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="stylesheet" href={"/assets/css/app.css?v=#{@asset_version}"} />
+        <script>
+          {%raw}
+          (function () {
+            // The Hologram client runtime unconditionally logs a verbose
+            // trace line (function/action timings, "page rendered in Xms",
+            // etc.) on every interaction, with no app-level config to turn
+            // it off (not gated behind Mix.env() in the library, so it logs
+            // the same way in every environment). Dropped here by filtering
+            // console.log calls that start with the runtime own
+            // "Hologram: " prefix, before the runtime script (loaded right
+            // after this one, via <Runtime /> below) gets a chance to log
+            // anything. console.error/warn are left untouched, since the
+            // runtime connection-error messages use those and are worth
+            // keeping visible.
+            var originalLog = console.log;
+            console.log = function (first) {
+              if (typeof first === 'string' && first.indexOf('Hologram:') === 0) {
+                return;
+              }
+              return originalLog.apply(console, arguments);
+            };
+          })();
+          {/raw}
+        </script>
         <Runtime />
       </head>
       <body class="wedding-bg min-h-screen flex flex-col">
