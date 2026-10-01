@@ -186,6 +186,28 @@ p, span, td, li {
   background: linear-gradient(to right, transparent, color-mix(in oklch, var(--color-primary) 70%, transparent), transparent);
 }
 
+/* Browsers hide scrollbars until hover/scroll by default (macOS overlay
+   style, some Linux/Chrome configs), which reads as "no scrollbar" on a
+   short internal list like the uploaded-videos card — force one that's
+   always visible instead of relying on that. */
+.scroll-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+.scroll-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-list::-webkit-scrollbar-thumb {
+  background-color: var(--color-primary);
+  border-radius: 9999px;
+}
+
 /* Crossfading hero photo carousel: several stacked, absolutely-positioned
    images share one keyframe timeline and are staggered via animation-delay
    (set inline per slide) so they hand off from one to the next in a loop. */

@@ -122,6 +122,25 @@ defmodule PhoenixHologramWeb.Layouts do
   end
 
   @doc """
+  Mtime (as a unix timestamp) of the compiled `app.css`, used as a cache-
+  busting query param on its `<link>` tag in root.html.heex. Without this,
+  Cloudflare (and browsers) key their cache on the bare `/assets/css/app.css`
+  URL, which never changes between deploys — real users kept getting a
+  stale stylesheet minutes after a CSS change actually shipped, since
+  nothing told the CDN edge to treat it as a new resource. Reads the file's
+  timestamp on every render rather than baking in a build-time constant, so
+  it stays correct across `mix phx.server` restarts without a real release
+  pipeline's asset-digest step.
+  """
+  def asset_version do
+    Application.app_dir(:phoenix_hologram, "priv/static/assets/css/app.css")
+    |> File.stat!()
+    |> Map.fetch!(:mtime)
+    |> NaiveDateTime.from_erl!()
+    |> NaiveDateTime.diff(~N[1970-01-01 00:00:00])
+  end
+
+  @doc """
   Dropdown listing every daisyUI theme enabled in app.css (plus "System",
   which follows the OS light/dark preference), so any theme can be picked
   from any page.

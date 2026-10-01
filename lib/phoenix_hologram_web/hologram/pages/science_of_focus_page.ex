@@ -46,7 +46,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.ScienceOfFocusPage do
   @stale_scene_tolerance_ms 5_000
 
   def init(_params, component, server) do
-    leading_faces = top_voted_face_per_movie(FaceDetection.list_movies_ordered())
+    leading_faces = top_voted_face_per_movie(FaceDetection.list_public_movies_ordered())
     top_face = List.first(leading_faces)
 
     focus_session_id = Ecto.UUID.generate()

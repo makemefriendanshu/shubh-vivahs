@@ -29,15 +29,21 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
 
   # :home gets the "Transform Your Wedding Videos..." sales banner (with a
   # CTA button); every other page keeps the original "Welcome to Shubh
-  # Vivaha" banner. Set via `layout DefaultLayout, banner: :home` on the page.
+  # Vivahas" banner. Set via `layout DefaultLayout, banner: :home` on the page.
   prop :banner, :atom, default: :default
 
   def init(props, component, server) do
-    movies = FaceDetection.list_movies_ordered()
+    # Public-only: this hero carousel and nav dropdown are the site's
+    # public showcase, shown as-is on every page including Dashboard/
+    # UploadPage - a signed-in user's own management view of every movie
+    # (public or not) lives in those pages' own "Uploaded Event Videos"
+    # cards instead (`FaceDetection.list_movies_ordered/0`).
+    movies = FaceDetection.list_public_movies_ordered()
 
     component =
       component
       |> put_state(:banner, props.banner)
+      |> put_state(:asset_version, PhoenixHologramWeb.Layouts.asset_version())
       |> put_state(:hero_images, build_hero_images(movies))
       |> put_state(:themes, PhoenixHologramWeb.DaisyThemes.themes())
       |> put_state(:footer_year, Date.utc_today().year)
@@ -207,7 +213,7 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
         <title>Shubh Vivahas</title>
         <link rel="icon" type="image/png" href="/images/home-logo.png" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
-        <link rel="stylesheet" href="/assets/css/app.css" />
+        <link rel="stylesheet" href={"/assets/css/app.css?v=#{@asset_version}"} />
         <Runtime />
       </head>
       <body class="wedding-bg min-h-screen flex flex-col">
