@@ -29,7 +29,7 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
 
   # :home gets the "Transform Your Wedding Videos..." sales banner (with a
   # CTA button); every other page keeps the original "Welcome to Shubh
-  # Vivahas" banner. Set via `layout DefaultLayout, banner: :home` on the page.
+  # Vivahs" banner. Set via `layout DefaultLayout, banner: :home` on the page.
   prop :banner, :atom, default: :default
 
   def init(props, component, server) do
@@ -186,7 +186,7 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
             el.setAttribute('role', 'status');
             el.setAttribute('aria-live', 'polite');
             el.innerHTML =
-              '<img src="/images/home-logo.png" alt="Shubh Vivahas" class="hologram-loading-logo" />' +
+              '<img src="/images/home-logo.png" alt="Shubh Vivahs" class="hologram-loading-logo" />' +
               '<div class="hologram-loading-spinner"></div>';
             document.documentElement.appendChild(el);
 
@@ -210,7 +210,7 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
           {/raw}
         </script>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Shubh Vivahas</title>
+        <title>Shubh Vivahs</title>
         <link rel="icon" type="image/png" href="/images/home-logo.png" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
         <link rel="stylesheet" href={"/assets/css/app.css?v=#{@asset_version}"} />
@@ -401,7 +401,7 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
                   Transform Your Wedding Videos Into A Digital Keepsake.
                 </p>
                 <p class="font-display text-primary-content/90 text-xs sm:text-lg mt-2 text-balance">
-                  Ready to share your Shubh Vivahas videos?
+                  Ready to share your Shubh Vivahs videos?
                 </p>
                 <a href="/#celebrations" class="btn btn-primary btn-sm sm:btn-md mt-4">Get Service Like This</a>
               </div>
@@ -423,7 +423,7 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
             <div class="absolute inset-x-0 bottom-0 px-6 pb-6 sm:pb-10 text-center">
               <div class="inline-block border border-primary/80 px-6 py-4 sm:px-14 sm:py-6">
                 <p class="font-display text-primary-content text-base sm:text-2xl tracking-wide">
-                  Welcome to Shubh Vivahas —
+                  Welcome to Shubh Vivahs —
                 </p>
                 <p class="font-display text-primary-content/90 text-sm sm:text-xl mt-1">
                   Where Love Begins &amp; Tradition Flourishes
@@ -499,7 +499,7 @@ defmodule PhoenixHologramWeb.Hologram.Layouts.DefaultLayout do
           </div>
 
           <div class="border-t border-primary/20 py-3 text-center text-xs tracking-wide text-secondary-content/70">
-            &copy; {@footer_year} Shubh Vivahas. All rights reserved.
+            &copy; {@footer_year} Shubh Vivahs. All rights reserved.
           </div>
         </footer>
 

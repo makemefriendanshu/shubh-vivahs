@@ -1,6 +1,6 @@
 defmodule PhoenixHologramWeb.Hologram.Pages.HowItWorksPage do
   @moduledoc """
-  Explains the two ways to experience Shubh Vivahas: browsing/voting in the
+  Explains the two ways to experience Shubh Vivahs: browsing/voting in the
   Premiere Hall as a viewer, and curating a film from its Admin View — plus
   how the Focus Engine turns raw footage into a "who's leading" scene poll.
   """
@@ -23,7 +23,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HowItWorksPage do
     %{
       icon: "hero-magnifying-glass",
       title: "Explore Celebrations",
-      body: "Browse every public Shubh Vivahas wedding and celebration film in the Premiere Hall."
+      body: "Browse every public Shubh Vivahs wedding and celebration film in the Premiere Hall."
     },
     %{
       icon: "hero-video-camera",
