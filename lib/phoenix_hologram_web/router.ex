@@ -61,6 +61,7 @@ defmodule PhoenixHologramWeb.Router do
     post "/account/avatar", AccountAvatarController, :create
     post "/videos/upload/chunk", VideoUploadController, :create_chunk
     post "/videos/upload/finalize", VideoUploadController, :finalize
+    post "/videos/upload/abort", VideoUploadController, :abort
   end
 
   # Other scopes may use custom stacks.

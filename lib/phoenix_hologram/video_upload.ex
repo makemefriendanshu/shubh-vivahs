@@ -19,7 +19,18 @@ defmodule PhoenixHologram.VideoUpload do
   inline in the finalize request, since it can take a while; the movie
   shows up right away with `status: "pending"` and moves through
   "processing" to "done"/"failed" for real as that finishes, the same
-  lifecycle every other listing already displays.
+  lifecycle every other listing already displays. It also starts
+  `public: false` — hidden from Home/Premiere Hall/the nav dropdown until
+  someone flips it public from Dashboard/UploadPage (see
+  `FaceDetection.set_movie_visibility/2`) — so a fresh upload doesn't show
+  up to anonymous visitors before its owner is ready to show it off.
+
+  If the browser-side JS cancels mid-upload (see UploadPage's "Cancel
+  Upload" button), it calls `VideoUploadController.abort/2`, which routes
+  here to `abort/1` — otherwise chunks already sent for that `upload_id`
+  would sit under the temp dir forever, since `finalize/3` (the only
+  other thing that cleans them up) never runs for an upload that was
+  never completed.
   """
 
   require Logger
@@ -127,7 +138,7 @@ defmodule PhoenixHologram.VideoUpload do
       title = title_from_filename(filename, ext)
 
       %Movie{}
-      |> Movie.changeset(%{path: dest, title: title, status: "pending"})
+      |> Movie.changeset(%{path: dest, title: title, status: "pending", public: false})
       |> Repo.insert()
       |> case do
         {:ok, movie} ->
@@ -139,6 +150,21 @@ defmodule PhoenixHologram.VideoUpload do
           {:error, "Couldn't save this upload — please try again."}
       end
     end
+  end
+
+  @doc """
+  Discards every chunk stored so far for `upload_id` (a user-initiated
+  cancel) so an abandoned upload does not sit on disk indefinitely.
+  Always returns `:ok`, including for an unrecognized or already-cleaned
+  `upload_id` — canceling something that is not there is not an error.
+  """
+  @spec abort(String.t()) :: :ok
+  def abort(upload_id) do
+    if valid_upload_id?(upload_id) do
+      cleanup(chunk_dir(upload_id))
+    end
+
+    :ok
   end
 
   @doc "True for a browser-generated upload id safe to use in a filesystem path."
@@ -172,7 +198,7 @@ defmodule PhoenixHologram.VideoUpload do
       # UploadPage both subscribe to `:movies_changed` so their movie
       # lists/status badges update live instead of needing a manual
       # reload once curation finishes (or fails).
-      Hologram.Realtime.broadcast_action(:movies_changed, :movie_ingested)
+      Hologram.Realtime.broadcast_action(:movies_changed, :movies_updated)
     end)
   end
 

@@ -8,9 +8,12 @@ defmodule PhoenixHologramWeb.VideoUploadController do
   UploadPage's browser-side JS slices the file into
   `PhoenixHologram.VideoUpload.chunk_size/0`-sized pieces and POSTs them
   here one at a time (`create_chunk/2`), then calls `finalize/2` once
-  they've all landed. Both actions return JSON, not a redirect: they're
-  called from `fetch()`, not a native form submission, so the page never
-  navigates mid-upload and can show live progress instead.
+  they've all landed, or `abort/2` if the user cancels partway through
+  (see UploadPage's "Cancel Upload" button) so chunks already sent do not
+  sit on disk forever. All three actions return JSON, not a redirect:
+  they're called from `fetch()`/`XMLHttpRequest`, not a native form
+  submission, so the page never navigates mid-upload and can show live
+  progress instead.
 
   Sits on the `:browser_no_csrf` pipeline like `AccountAvatarController`
   and validates the same Hologram-issued CSRF token manually, for the
@@ -56,6 +59,17 @@ defmodule PhoenixHologramWeb.VideoUploadController do
           status: "error",
           message: "Invalid upload — please reload the page and try again."
         })
+    end
+  end
+
+  def abort(conn, params) do
+    case verify_csrf_token(conn, params) do
+      :ok ->
+        VideoUpload.abort(params["upload_id"])
+        json(conn, %{status: "ok"})
+
+      {:error, message} ->
+        conn |> put_status(422) |> json(%{status: "error", message: message})
     end
   end
 

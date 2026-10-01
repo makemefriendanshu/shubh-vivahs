@@ -15,7 +15,21 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
   page subscribes to the `:movies_changed` broadcast channel
   (`put_subscription/2`) that `PhoenixHologram.VideoUpload` fires once a
   background ingestion finishes, so a Pending/Processing badge flips to
-  Curated/Failed on its own, no manual reload needed. Superusers see
+  Curated/Failed on its own, no manual reload needed (the same channel
+  also fires from this page's own :set_movie_visibility/:delete_movie
+  commands below, so a change made in one open tab shows up in another).
+
+  Each row carries two real management controls: a "Public"/"Private"
+  badge (`FaceDetection.set_movie_visibility/2`) toggling whether the
+  movie shows on Home/Premiere Hall/the nav dropdown — new uploads
+  default to private (see `PhoenixHologram.VideoUpload`), while any
+  signed-in user still sees and manages every movie here regardless of
+  visibility, matching this app's one-shared-catalog model — and a
+  Delete button, gated behind an explicit second click
+  (`@confirming_delete_id` swaps that row's button for Confirm/Cancel)
+  since `FaceDetection.delete_movie/1` is a real, unrecoverable deletion
+  of the source file and every generated thumbnail/preview/segment, not
+  just the DB row. Superusers see
   Premium as already unlocked (`Accounts.premium?/1`) instead of the
   "Get Premium" upsell. A half-width "Account Settings" card is the first
   card in the curation grid (stacks full-width above the rest on mobile,
@@ -75,7 +89,8 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
           current_user_avatar_url: user.avatar_url,
           current_user_wedding_date: format_date(user.wedding_date),
           superuser?: Accounts.superuser?(user),
-          premium?: Accounts.premium?(user)
+          premium?: Accounts.premium?(user),
+          confirming_delete_id: nil
         ] ++ movie_stats()
       )
 
@@ -83,12 +98,44 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
   end
 
   # Dispatched via Hologram.Realtime.broadcast_action/2 from
-  # PhoenixHologram.VideoUpload once a background ingestion finishes (see
-  # its moduledoc) — every open Dashboard tab re-fetches the movie catalog
-  # instead of showing a stale "Pending Review"/"Processing" badge until
-  # the couple happens to reload the page.
-  def action(:movie_ingested, _params, component) do
+  # PhoenixHologram.VideoUpload once a background ingestion finishes, or
+  # from this page's own :set_movie_visibility/:delete_movie commands
+  # below (see their moduledoc-level cross-references) — every open
+  # Dashboard tab re-fetches the movie catalog instead of showing a stale
+  # badge, visibility, or a since-deleted movie until reloaded.
+  def action(:movies_updated, _params, component) do
     put_command(component, :refresh_movie_stats)
+  end
+
+  # Toggling straight from the "Public"/"Private" badge - no confirm step,
+  # since it is easily reversible (click it again).
+  def action(:toggle_movie_visibility, params, component) do
+    put_command(component, :set_movie_visibility,
+      movie_id: params.movie_id,
+      currently_public: params.currently_public
+    )
+  end
+
+  # Deleting is NOT easily reversible (it removes the source file and
+  # every generated thumbnail/preview/segment, not just the DB row - see
+  # FaceDetection.delete_movie/1), so it needs an explicit second click
+  # rather than firing on the first one. There's no existing modal/confirm-
+  # dialog convention anywhere in this app to reuse, so this uses the
+  # simplest thing that works: state tracking which single row (if any)
+  # is mid-confirmation, swapping its own delete button for
+  # Confirm/Cancel.
+  def action(:delete_movie_clicked, params, component) do
+    put_state(component, :confirming_delete_id, params.movie_id)
+  end
+
+  def action(:delete_movie_cancelled, _params, component) do
+    put_state(component, :confirming_delete_id, nil)
+  end
+
+  def action(:delete_movie_confirmed, params, component) do
+    component
+    |> put_state(:confirming_delete_id, nil)
+    |> put_command(:delete_movie, movie_id: params.movie_id)
   end
 
   def action(:movie_stats_refreshed, params, component) do
@@ -126,6 +173,18 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
     put_action(server, :movie_stats_refreshed, movie_stats())
   end
 
+  def command(:set_movie_visibility, params, server) do
+    FaceDetection.set_movie_visibility(params.movie_id, !params.currently_public)
+    Hologram.Realtime.broadcast_action(:movies_changed, :movies_updated)
+    put_action(server, :movie_stats_refreshed, movie_stats())
+  end
+
+  def command(:delete_movie, params, server) do
+    FaceDetection.delete_movie(params.movie_id)
+    Hologram.Realtime.broadcast_action(:movies_changed, :movies_updated)
+    put_action(server, :movie_stats_refreshed, movie_stats())
+  end
+
   def command(:log_out, _params, server) do
     server
     |> delete_user_id()
@@ -153,11 +212,24 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
       id: movie.id,
       title: movie_title(movie),
       badge_label: status_label(movie.status),
-      badge_class: status_class(movie.status)
+      badge_class: status_class(movie.status),
+      public: movie.public,
+      visibility_label: visibility_label(movie.public),
+      visibility_class: visibility_class(movie.public),
+      visibility_icon: visibility_icon(movie.public)
     }
   end
 
   defp movie_title(movie), do: movie.title || movie.path
+
+  defp visibility_label(true), do: "Public"
+  defp visibility_label(false), do: "Private"
+
+  defp visibility_class(true), do: "badge badge-success badge-sm gap-1"
+  defp visibility_class(false), do: "badge badge-ghost badge-sm gap-1"
+
+  defp visibility_icon(true), do: "hero-eye w-3 h-3"
+  defp visibility_icon(false), do: "hero-eye-slash w-3 h-3"
 
   defp format_date(nil), do: nil
   defp format_date(%Date{} = date), do: Calendar.strftime(date, "%d %b %Y")
@@ -271,7 +343,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
             </div>
           </div>
 
-          <div class="card card-stock shadow-xl">
+          <div class="card card-stock shadow-xl self-start">
             <div class="card-body">
               <h2 class="font-display text-base uppercase tracking-wide">My Wedding Timeline Status</h2>
               <p class="text-sm text-base-content/70 mt-2">
@@ -289,7 +361,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
             </div>
           </div>
 
-          <div class="card card-stock shadow-xl">
+          <div class="card card-stock shadow-xl self-start">
             <div class="card-body">
               <h2 class="font-display text-base uppercase tracking-wide">My Uploaded Event Videos</h2>
               <script>
@@ -298,7 +370,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
                   if (window.__dashboardMoviesPollAttached) { return; }
                   window.__dashboardMoviesPollAttached = true;
 
-                  // The :movie_ingested broadcast (see this page's moduledoc)
+                  // The :movies_updated broadcast (see this page's moduledoc)
                   // updates this list within about a second of ingestion
                   // finishing — this is only a fallback in case one is ever
                   // missed (e.g. the realtime connection dropped and
@@ -313,11 +385,41 @@ defmodule PhoenixHologramWeb.Hologram.Pages.DashboardPage do
               {%if @movies == []}
                 <p class="text-sm text-base-content/60 mt-2">No videos uploaded yet.</p>
               {%else}
-                <ul class="text-sm text-base-content/70 mt-2 flex flex-col gap-1.5">
+                <ul class="text-sm text-base-content/70 mt-2 flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1 scroll-list">
                   {%for movie <- @movies}
-                    <li class="flex items-center gap-2">
-                      <span class={movie.badge_class}>{movie.badge_label}</span>
-                      <Link to={PlayerPage, id: movie.id} class="hover:underline">{movie.title}</Link>
+                    <li class="border-b border-base-content/10 pb-2 last:border-0 last:pb-0">
+                      <div class="flex items-center gap-2">
+                        <span class={movie.badge_class}>{movie.badge_label}</span>
+                        <Link to={PlayerPage, id: movie.id} class="hover:underline flex-1 min-w-0 truncate">{movie.title}</Link>
+                      </div>
+                      <div class="flex items-center gap-2 mt-1">
+                        <button
+                          type="button"
+                          $click={:toggle_movie_visibility, movie_id: movie.id, currently_public: movie.public}
+                          class={movie.visibility_class}
+                          title="Click to toggle whether this shows on public pages"
+                        >
+                          <span class={movie.visibility_icon}></span>
+                          {movie.visibility_label}
+                        </button>
+                        {%if @confirming_delete_id == movie.id}
+                          <button type="button" $click={:delete_movie_confirmed, movie_id: movie.id} class="btn btn-error btn-xs">
+                            Confirm
+                          </button>
+                          <button type="button" $click={:delete_movie_cancelled, movie_id: movie.id} class="btn btn-ghost btn-xs">
+                            Cancel
+                          </button>
+                        {%else}
+                          <button
+                            type="button"
+                            $click={:delete_movie_clicked, movie_id: movie.id}
+                            class="btn btn-ghost btn-xs text-error px-1"
+                            title="Delete this video"
+                          >
+                            <span class="hero-trash w-3.5 h-3.5"></span>
+                          </button>
+                        {/if}
+                      </div>
                     </li>
                   {/for}
                 </ul>

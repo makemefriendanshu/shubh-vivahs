@@ -19,6 +19,13 @@ defmodule PhoenixHologram.FaceDetection.Movie do
     field(:description, :string)
     field(:event_date, :date)
     field(:location, :string)
+    # Whether this movie shows on public-facing pages (Home, Premiere Hall,
+    # the nav dropdown) - defaults false so a freshly uploaded video isn't
+    # shown off to anonymous visitors before its owner is ready. Any
+    # authenticated user still sees it in Dashboard/UploadPage/AdminMoviesPage
+    # regardless, same as every other movie in this app's one shared
+    # catalog (see DashboardPage's moduledoc).
+    field(:public, :boolean, default: false)
 
     has_many(:faces, PhoenixHologram.FaceDetection.Face)
 
@@ -27,7 +34,7 @@ defmodule PhoenixHologram.FaceDetection.Movie do
 
   def changeset(movie, attrs) do
     movie
-    |> cast(attrs, [:path, :title, :status, :position])
+    |> cast(attrs, [:path, :title, :status, :position, :public])
     |> validate_required([:path])
     |> validate_inclusion(:status, @statuses)
   end
@@ -35,5 +42,10 @@ defmodule PhoenixHologram.FaceDetection.Movie do
   @doc "Changeset for admin-authored listing details: blurb, event date, and location."
   def details_changeset(movie, attrs) do
     cast(movie, attrs, [:description, :event_date, :location])
+  end
+
+  @doc "Changeset for toggling whether a movie is shown on public-facing pages."
+  def visibility_changeset(movie, attrs) do
+    cast(movie, attrs, [:public])
   end
 end

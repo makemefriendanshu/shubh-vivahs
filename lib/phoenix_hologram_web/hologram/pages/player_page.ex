@@ -19,7 +19,17 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PlayerPage do
   layout PhoenixHologramWeb.Hologram.Layouts.DefaultLayout
 
   def init(params, component, server) do
+    # A private movie (see Movie's :public field doc) is treated exactly
+    # like a nonexistent one for anyone not signed in - same "not found"
+    # path build_details/1 and every `movie && ...` guard below already
+    # handle, rather than a separate error state. Signed-in visitors still
+    # see it regardless of visibility, same as Dashboard/UploadPage's own
+    # management view of the shared catalog.
     movie_record = Repo.get(Movie, params.id)
+
+    movie_record =
+      if movie_record && !movie_record.public && !server.user_id, do: nil, else: movie_record
+
     movie = build_details(movie_record)
     session_id = server.session_id
     focus_session_id = Ecto.UUID.generate()

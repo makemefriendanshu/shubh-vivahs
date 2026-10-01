@@ -20,7 +20,10 @@ defmodule PhoenixHologram.FaceDetection do
     ModelServer
   }
 
+  alias PhoenixHologram.FaceThumbnail
+  alias PhoenixHologram.MovieThumbnail
   alias PhoenixHologram.Repo
+  alias PhoenixHologram.VideoPreview
 
   @doc """
   Ingests `video_path`, returning `{:ok, movie}` with its `:faces` (each
@@ -96,7 +99,11 @@ defmodule PhoenixHologram.FaceDetection do
   then `:id` as a stable tiebreaker. The single source of truth for movie
   order across every listing (Premiere Hall, admin, the nav dropdowns) —
   order here, not insertion/ingest order, which is an implementation
-  detail unrelated to the actual event sequence.
+  detail unrelated to the actual event sequence. Includes private movies —
+  this is what DashboardPage/UploadPage/AdminMoviesPage show, since any
+  authenticated user manages the whole shared catalog regardless of
+  visibility (see `Movie`'s `:public` field doc). Public-facing pages use
+  `list_public_movies_ordered/0` instead.
   """
   def list_movies_ordered do
     Repo.all(
@@ -106,6 +113,77 @@ defmodule PhoenixHologram.FaceDetection do
           asc: m.position,
           asc: m.id
         ]
+    )
+  end
+
+  @doc """
+  Same ordering as `list_movies_ordered/0`, filtered to movies marked
+  `public: true` — what Home, Premiere Hall, and the nav dropdown show to
+  anonymous visitors. A freshly uploaded movie defaults to private (see
+  `PhoenixHologram.VideoUpload`) so it doesn't show up here until someone
+  flips it public from Dashboard/UploadPage.
+  """
+  def list_public_movies_ordered do
+    Repo.all(
+      from m in Movie,
+        where: m.public == true,
+        order_by: [
+          asc: fragment("CASE WHEN ? IS NULL THEN 1 ELSE 0 END", m.position),
+          asc: m.position,
+          asc: m.id
+        ]
+    )
+  end
+
+  @doc """
+  Sets whether `movie_id` shows on public-facing pages. Returns `{:ok,
+  movie}` or `{:error, changeset}`.
+  """
+  def set_movie_visibility(movie_id, public?) do
+    Movie
+    |> Repo.get!(movie_id)
+    |> Movie.visibility_changeset(%{public: public?})
+    |> Repo.update()
+  end
+
+  @doc """
+  Permanently deletes a movie: its DB row (`Face`/`Detection` rows cascade
+  at the database level, per the `movies`/`faces`/`face_detections`
+  migration's `on_delete: :delete_all` foreign keys), every file generated
+  for it (thumbnails, preview proxies, download segments, metadata cache),
+  and the original uploaded source file. Returns `{:ok, movie}` or
+  `{:error, :not_found}`. Missing files are not an error — deleting
+  something already gone is the desired end state either way.
+  """
+  @spec delete_movie(term) :: {:ok, Movie.t()} | {:error, :not_found}
+  def delete_movie(movie_id) do
+    case Repo.get(Movie, movie_id) do
+      nil ->
+        {:error, :not_found}
+
+      movie ->
+        movie = Repo.preload(movie, :faces)
+        Enum.each(movie.faces, &File.rm(FaceThumbnail.thumbnail_path(&1)))
+        File.rm(MovieThumbnail.thumbnail_path(movie))
+        File.rm(VideoPreview.preview_path(movie))
+        File.rm(VideoPreview.minimal_path(movie))
+        File.rm_rf(segments_dir(movie))
+        Enum.each(metadata_paths(movie), &File.rm/1)
+        File.rm(movie.path)
+        Repo.delete(movie)
+    end
+  end
+
+  defp segments_dir(movie) do
+    Path.join([:code.priv_dir(:phoenix_hologram), "face_detection/movie_segments", "#{movie.id}"])
+  end
+
+  defp metadata_paths(movie) do
+    dir = Path.join(:code.priv_dir(:phoenix_hologram), "face_detection/movie_metadata")
+
+    Enum.map(
+      ["#{movie.id}.json", "#{movie.id}_preview.json", "#{movie.id}_minimal.json"],
+      &Path.join(dir, &1)
     )
   end
 
