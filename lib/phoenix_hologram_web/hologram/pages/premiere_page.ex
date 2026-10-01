@@ -10,9 +10,13 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PremierePage do
 
   layout PhoenixHologramWeb.Hologram.Layouts.DefaultLayout
 
-  def init(_params, component, _server) do
+  def init(_params, component, server) do
     movies =
-      FaceDetection.list_movies_ordered()
+      if server.user_id do
+        FaceDetection.list_movies_ordered()
+      else
+        FaceDetection.list_public_movies_ordered()
+      end
       |> Enum.map(&build_card/1)
 
     put_state(component, :movies, movies)
@@ -23,6 +27,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PremierePage do
       id: movie.id,
       title: movie.title || movie.path,
       status: movie.status,
+      public: movie.public,
       description: movie.description,
       event_line: format_event_line(movie),
       thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail",
@@ -109,6 +114,12 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PremierePage do
                           "text-xs tracking-wide text-base-content/50"
                         end
                       }>{movie.event_line}</p>
+                    {/if}
+                    {%if !movie.public}
+                      <span class="badge badge-ghost gap-1">
+                        <span class="hero-eye-slash w-3 h-3"></span>
+                        Private
+                      </span>
                     {/if}
                     <div class="flex flex-wrap justify-center gap-2 mt-2">
                       <Link to={PlayerPage, id: movie.id} class="btn btn-sm btn-primary">

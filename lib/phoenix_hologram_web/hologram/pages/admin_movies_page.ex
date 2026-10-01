@@ -31,6 +31,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviesPage do
           title: movie.title || movie.path,
           status: movie.status,
           face_count: length(movie.faces),
+          public: movie.public,
           description: movie.description,
           event_line: format_event_line(movie),
           thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail",
@@ -132,6 +133,12 @@ defmodule PhoenixHologramWeb.Hologram.Pages.AdminMoviesPage do
                           "badge badge-secondary"
                         end
                       }>{movie.face_count} face(s)</span>
+                      {%if !movie.public}
+                        <span class="badge badge-ghost gap-1">
+                          <span class="hero-eye-slash w-3 h-3"></span>
+                          Private
+                        </span>
+                      {/if}
                     </div>
                     <div class="flex flex-wrap justify-center gap-2 mt-2">
                       <Link to={AdminMoviePage, id: movie.id} class="btn btn-sm btn-secondary">
