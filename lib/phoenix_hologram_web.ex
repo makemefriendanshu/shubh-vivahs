@@ -17,7 +17,7 @@ defmodule PhoenixHologramWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts hologram images favicon.ico favicon.svg robots.txt)
+  def static_paths, do: ~w(assets fonts hologram images favicon.ico favicon.svg robots.txt sitemap.xml)
 
   def router do
     quote do
