@@ -27,6 +27,14 @@ defmodule PhoenixHologram.FaceDetection.Movie do
     # catalog (see DashboardPage's moduledoc).
     field(:public, :boolean, default: false)
 
+    # Who uploaded this — nil for movies ingested before this column
+    # existed (including seed/demo videos that were never routed through
+    # VideoUpload). Doesn't change this app's one-shared-catalog model
+    # (see DashboardPage's moduledoc — every signed-in user still sees
+    # and manages every movie regardless of uploader); it only drives
+    # which on-disk folder a fresh upload's file lands in.
+    belongs_to(:user, PhoenixHologram.Accounts.User)
+
     has_many(:faces, PhoenixHologram.FaceDetection.Face)
 
     timestamps(type: :utc_datetime)
@@ -34,7 +42,7 @@ defmodule PhoenixHologram.FaceDetection.Movie do
 
   def changeset(movie, attrs) do
     movie
-    |> cast(attrs, [:path, :title, :status, :position, :public])
+    |> cast(attrs, [:path, :title, :status, :position, :public, :user_id])
     |> validate_required([:path])
     |> validate_inclusion(:status, @statuses)
   end
