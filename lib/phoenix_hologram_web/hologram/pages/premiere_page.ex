@@ -14,10 +14,9 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PremierePage do
     server = put_subscription(server, :movies_changed)
 
     component =
-      put_state(component,
-        logged_in?: !!server.user_id,
-        movies: list_movies(server)
-      )
+      component
+      |> put_state(:logged_in?, !!server.user_id)
+      |> put_filtered_movies(list_movies(server), :all)
 
     {component, server}
   end
@@ -42,8 +41,16 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PremierePage do
     )
   end
 
+  # All/Public/Private filter above the grid - purely narrows the
+  # already-fetched @all_movies list, no server round trip needed. Only
+  # rendered for logged-in users (see template) - anonymous visitors only
+  # ever have public movies to begin with.
+  def action(:set_visibility_filter, params, component) do
+    put_filtered_movies(component, component.state.all_movies, params.filter)
+  end
+
   def action(:movies_refreshed, params, component) do
-    put_state(component, :movies, params.movies)
+    put_filtered_movies(component, params.movies, component.state.visibility_filter)
   end
 
   def command(:refresh_movies, _params, server) do
@@ -61,6 +68,24 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PremierePage do
 
     put_action(server, :movies_refreshed, movies: list_movies(server))
   end
+
+  defp put_filtered_movies(component, all_movies, filter) do
+    put_state(component,
+      all_movies: all_movies,
+      visibility_filter: filter,
+      movies: filter_movies(all_movies, filter),
+      empty_message: empty_message(all_movies, filter)
+    )
+  end
+
+  defp filter_movies(movies, :public), do: Enum.filter(movies, & &1.public)
+  defp filter_movies(movies, :private), do: Enum.filter(movies, &(!&1.public))
+  defp filter_movies(movies, :all), do: movies
+
+  defp empty_message([], _filter), do: "No films yet. Once a video is ingested it will show up here."
+  defp empty_message(_all_movies, :public), do: "No public films."
+  defp empty_message(_all_movies, :private), do: "No private films."
+  defp empty_message(_all_movies, :all), do: "No films yet. Once a video is ingested it will show up here."
 
   defp list_movies(server) do
     if server.user_id do
@@ -131,12 +156,54 @@ defmodule PhoenixHologramWeb.Hologram.Pages.PremierePage do
           </div>
           <div class="gold-divider w-24 mx-auto mb-6"></div>
 
+          {%if @logged_in?}
+            <div class="flex justify-center gap-2 mb-6">
+              <button
+                type="button"
+                $click={:set_visibility_filter, filter: :all}
+                class={
+                  if @visibility_filter == :all do
+                    "btn btn-sm btn-primary"
+                  else
+                    "btn btn-sm btn-ghost"
+                  end
+                }
+              >
+                All
+              </button>
+              <button
+                type="button"
+                $click={:set_visibility_filter, filter: :public}
+                class={
+                  if @visibility_filter == :public do
+                    "btn btn-sm btn-primary"
+                  else
+                    "btn btn-sm btn-ghost"
+                  end
+                }
+              >
+                Public
+              </button>
+              <button
+                type="button"
+                $click={:set_visibility_filter, filter: :private}
+                class={
+                  if @visibility_filter == :private do
+                    "btn btn-sm btn-primary"
+                  else
+                    "btn btn-sm btn-ghost"
+                  end
+                }
+              >
+                Private
+              </button>
+            </div>
+          {/if}
+
           {%if @movies == []}
             <div class="card card-stock shadow-xl">
               <div class="card-body">
-                <p class="text-base-content/70">
-                  No films yet. Once a video is ingested it will show up here.
-                </p>
+                <p class="text-base-content/70">{@empty_message}</p>
               </div>
             </div>
           {%else}
