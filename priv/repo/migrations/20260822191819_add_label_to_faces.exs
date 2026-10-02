@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AddLabelToFaces do
+defmodule ShubhVivahs.Repo.Migrations.AddLabelToFaces do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AddAuthorNameToComments do
+defmodule ShubhVivahs.Repo.Migrations.AddAuthorNameToComments do
   use Ecto.Migration
 
   def change do

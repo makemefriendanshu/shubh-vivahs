@@ -4,12 +4,12 @@
 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Cinzel:wght@600;700;800;900&display=swap");
 
 @import "tailwindcss" source(none);
-@import "phoenix-colocated/phoenix_hologram/colocated.css";
+@import "phoenix-colocated/shubh_vivahs/colocated.css";
 @source "../css";
 @source "../js";
-@source "../../lib/phoenix_hologram_web";
+@source "../../lib/shubh_vivahs_web";
 /* Required for Tailwind to automatically pick up changes in colocated CSS files in dev */
-@source "../../_build/dev/phoenix-colocated/phoenix_hologram/*/";
+@source "../../_build/dev/phoenix-colocated/shubh_vivahs/*/";
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
@@ -184,6 +184,28 @@ p, span, td, li {
 .gold-divider {
   height: 1px;
   background: linear-gradient(to right, transparent, color-mix(in oklch, var(--color-primary) 70%, transparent), transparent);
+}
+
+/* Browsers hide scrollbars until hover/scroll by default (macOS overlay
+   style, some Linux/Chrome configs), which reads as "no scrollbar" on a
+   short internal list like the uploaded-videos card — force one that's
+   always visible instead of relying on that. */
+.scroll-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+.scroll-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-list::-webkit-scrollbar-thumb {
+  background-color: var(--color-primary);
+  border-radius: 9999px;
 }
 
 /* Crossfading hero photo carousel: several stacked, absolutely-positioned
