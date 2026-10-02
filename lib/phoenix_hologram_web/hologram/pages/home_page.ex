@@ -24,49 +24,31 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
 
   layout PhoenixHologramWeb.Hologram.Layouts.DefaultLayout, banner: :home
 
-  def init(_params, component, _server) do
-    movies =
-      FaceDetection.list_superuser_public_movies_ordered()
-      |> Enum.map(&build_card/1)
+  def init(_params, component, server) do
+    server = put_subscription(server, :movies_changed)
 
-    component
-    |> put_state(:movies, movies)
-    |> put_state(:auth_tab, :login)
-    |> put_state(:name, "")
-    |> put_state(:email, "")
-    |> put_state(:password, "")
-    |> put_state(:phone, "")
-    |> put_state(:wedding_date, "")
-    |> put_state(:auth_error, nil)
-    |> put_state(:auth_submitting?, false)
+    component =
+      component
+      |> put_state(:movies, list_movies())
+      |> put_state(:auth_tab, :login)
+      |> put_state(:name, "")
+      |> put_state(:email, "")
+      |> put_state(:password, "")
+      |> put_state(:phone, "")
+      |> put_state(:wedding_date, "")
+      |> put_state(:auth_error, nil)
+      |> put_state(:auth_submitting?, false)
+
+    {component, server}
   end
 
-  defp build_card(movie) do
-    %{
-      id: movie.id,
-      title: movie.title || movie.path,
-      status: movie.status,
-      description: movie.description,
-      event_line: format_event_line(movie),
-      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail",
-      highlight?: highlight_card?(movie)
-    }
+  # Dispatched via Hologram.Realtime.broadcast_action/2 from
+  # DashboardPage/UploadPage/AdminMoviesPage/PremierePage's own
+  # toggle/delete commands - a movie flipped to private (or deleted)
+  # elsewhere must disappear from this showcase without a manual reload.
+  def action(:movies_updated, _params, component) do
+    put_command(component, :refresh_movies)
   end
-
-  defp highlight_card?(movie) do
-    title = movie.title || ""
-    String.contains?(String.downcase(title), "happy birthday")
-  end
-
-  defp format_event_line(movie) do
-    case [format_event_date(movie.event_date), movie.location] |> Enum.reject(&is_nil/1) do
-      [] -> nil
-      parts -> Enum.join(parts, " | ")
-    end
-  end
-
-  defp format_event_date(nil), do: nil
-  defp format_event_date(date), do: date |> Calendar.strftime("%d %b %Y") |> String.upcase()
 
   # Pure client-side UI toggle (same idiom as AdminAnalyticsPage's
   # :toggle_filters) — never needs a server round trip. :forgot_password
@@ -152,6 +134,14 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
     put_state(component, auth_submitting?: false, auth_error: params.message)
   end
 
+  def action(:movies_refreshed, params, component) do
+    put_state(component, :movies, params.movies)
+  end
+
+  def command(:refresh_movies, _params, server) do
+    put_action(server, :movies_refreshed, movies: list_movies())
+  end
+
   def command(:log_in, %{email: email, password: password}, server) do
     case Accounts.authenticate_user(email, password) do
       {:ok, user} ->
@@ -175,6 +165,38 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
         put_action(server, :auth_failed, message: registration_error_message(changeset))
     end
   end
+
+  defp list_movies do
+    FaceDetection.list_superuser_public_movies_ordered()
+    |> Enum.map(&build_card/1)
+  end
+
+  defp build_card(movie) do
+    %{
+      id: movie.id,
+      title: movie.title || movie.path,
+      status: movie.status,
+      description: movie.description,
+      event_line: format_event_line(movie),
+      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail",
+      highlight?: highlight_card?(movie)
+    }
+  end
+
+  defp highlight_card?(movie) do
+    title = movie.title || ""
+    String.contains?(String.downcase(title), "happy birthday")
+  end
+
+  defp format_event_line(movie) do
+    case [format_event_date(movie.event_date), movie.location] |> Enum.reject(&is_nil/1) do
+      [] -> nil
+      parts -> Enum.join(parts, " | ")
+    end
+  end
+
+  defp format_event_date(nil), do: nil
+  defp format_event_date(date), do: date |> Calendar.strftime("%d %b %Y") |> String.upcase()
 
   defp registration_error_message(changeset) do
     if Keyword.has_key?(changeset.errors, :email) do
