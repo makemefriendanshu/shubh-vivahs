@@ -65,6 +65,28 @@ defmodule PhoenixHologram.Accounts do
   def superuser?(%User{is_superuser: true}), do: true
   def superuser?(_user), do: false
 
+  @doc """
+  Promotes or demotes an existing account's superuser status — the one
+  real tier/user-type distinction this app has (`user_type`/`tier` in
+  `VideoUpload.user_dir/1`). Keeps that user's managed uploads folder
+  (and every movie path under it) in sync with the new status via
+  `VideoUpload.resync_user_dir/1`. Returns `{:ok, user}` or `{:error,
+  changeset}`.
+  """
+  def set_superuser(%User{} = user, is_superuser) when is_boolean(is_superuser) do
+    user
+    |> User.superuser_changeset(%{is_superuser: is_superuser})
+    |> Repo.update()
+    |> case do
+      {:ok, updated_user} = ok ->
+        PhoenixHologram.VideoUpload.resync_user_dir(updated_user)
+        ok
+
+      error ->
+        error
+    end
+  end
+
   @doc "True for any account that should see Premium features unlocked. Superusers get this for free; there is no separate paid-plan field yet (see PaymentStore/PromoRequests for the payment-based unlock path non-superusers still go through)."
   def premium?(user), do: superuser?(user)
 end

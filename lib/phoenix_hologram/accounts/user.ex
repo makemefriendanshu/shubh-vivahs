@@ -42,6 +42,11 @@ defmodule PhoenixHologram.Accounts.User do
     |> cast(attrs, [:is_superuser])
   end
 
+  @doc "Changeset for promoting/demoting an existing account's superuser status (see `Accounts.set_superuser/2`)."
+  def superuser_changeset(user, attrs) do
+    cast(user, attrs, [:is_superuser])
+  end
+
   @doc "Changeset for a signed-in user editing their own profile (name/email plus the optional fields above) on AccountSettingsPage."
   def profile_changeset(user, attrs) do
     user

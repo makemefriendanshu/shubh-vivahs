@@ -73,11 +73,18 @@ defmodule PhoenixHologram.FaceDetection do
     |> Repo.update()
   end
 
-  @doc "Renames a movie. Returns `{:ok, movie}` or `{:error, changeset}`."
+  @doc """
+  Renames a movie — both its title and, when the file lives under
+  `VideoUpload`'s managed storage, its on-disk filename (see
+  `VideoUpload.rename_for_title/2`). Returns `{:ok, movie}` or
+  `{:error, changeset}`.
+  """
   def rename_movie(movie_id, title) do
-    Movie
-    |> Repo.get!(movie_id)
-    |> Movie.changeset(%{title: title})
+    movie = Repo.get!(Movie, movie_id)
+    new_path = PhoenixHologram.VideoUpload.rename_for_title(movie, title)
+
+    movie
+    |> Movie.changeset(%{title: title, path: new_path})
     |> Repo.update()
   end
 

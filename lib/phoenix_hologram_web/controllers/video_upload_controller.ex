@@ -46,7 +46,12 @@ defmodule PhoenixHologramWeb.VideoUploadController do
     with :ok <- verify_csrf_token(conn, params),
          {:ok, total_chunks} <- parse_int(params["total_chunks"]),
          {:ok, movie} <-
-           VideoUpload.finalize(params["upload_id"], params["filename"] || "", total_chunks) do
+           VideoUpload.finalize(
+             params["upload_id"],
+             params["filename"] || "",
+             total_chunks,
+             conn.assigns.current_user
+           ) do
       json(conn, %{status: "ok", movie_id: movie.id, title: movie.title})
     else
       {:error, message} when is_binary(message) ->
