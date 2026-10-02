@@ -39,8 +39,6 @@ npm-debug.log
 /assets/node_modules/
 
 # Unrelated personal files that have ended up in this directory.
-/Anshuman  &  Mausam  Wedding/
-/Birthday/
 /Birthday foto/
 
 # Face detection: downloaded ONNX models + bundled ffmpeg binary
