@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AddListingDetailsToMovies do
+defmodule ShubhVivahs.Repo.Migrations.AddListingDetailsToMovies do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.CreateUsers do
+defmodule ShubhVivahs.Repo.Migrations.CreateUsers do
   use Ecto.Migration
 
   def change do

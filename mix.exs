@@ -1,9 +1,9 @@
-defmodule PhoenixHologram.MixProject do
+defmodule ShubhVivahs.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :phoenix_hologram,
+      app: :shubh_vivahs,
       version: "0.1.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -20,7 +20,7 @@ defmodule PhoenixHologram.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {PhoenixHologram.Application, []},
+      mod: {ShubhVivahs.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -89,10 +89,10 @@ defmodule PhoenixHologram.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind phoenix_hologram", "esbuild phoenix_hologram"],
+      "assets.build": ["compile", "tailwind shubh_vivahs", "esbuild shubh_vivahs"],
       "assets.deploy": [
-        "tailwind phoenix_hologram --minify",
-        "esbuild phoenix_hologram --minify",
+        "tailwind shubh_vivahs --minify",
+        "esbuild shubh_vivahs --minify",
         "phx.digest"
       ],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],

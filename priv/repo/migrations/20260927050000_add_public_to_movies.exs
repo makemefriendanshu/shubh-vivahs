@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AddPublicToMovies do
+defmodule ShubhVivahs.Repo.Migrations.AddPublicToMovies do
   use Ecto.Migration
 
   # New uploads default to private (see VideoUpload.assemble/5) - "private

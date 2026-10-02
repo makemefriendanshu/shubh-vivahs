@@ -12,15 +12,15 @@ import Config
 # If you use `mix release`, you need to explicitly enable the server
 # by passing the PHX_SERVER=true when you start it:
 #
-#     PHX_SERVER=true bin/phoenix_hologram start
+#     PHX_SERVER=true bin/shubh_vivahs start
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 if System.get_env("PHX_SERVER") do
-  config :phoenix_hologram, PhoenixHologramWeb.Endpoint, server: true
+  config :shubh_vivahs, ShubhVivahsWeb.Endpoint, server: true
 end
 
-config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
+config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
 # Shared secret the companion Android app presents when connecting to
@@ -28,14 +28,14 @@ config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
 # closed) — except in :dev, where a fixed insecure fallback keeps local
 # testing convenient without needing the env var. Never rely on that
 # fallback outside :dev.
-config :phoenix_hologram,
+config :shubh_vivahs,
        :payment_socket_token,
        System.get_env("PAYMENT_SOCKET_TOKEN") ||
          if(config_env() == :dev, do: "dev-only-insecure-payment-token")
 
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
-  config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
+  config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
     live_reload: [
       web_console_logger: true,
       patterns: [
@@ -44,8 +44,8 @@ if config_env() == :dev do
         # Gettext translations
         ~r"priv/gettext/.*\.po$",
         # Router, Controllers, LiveViews and LiveComponents
-        ~r"lib/phoenix_hologram_web/router\.ex$",
-        ~r"lib/phoenix_hologram_web/(controllers|live|components)/.*\.(ex|heex)$"
+        ~r"lib/shubh_vivahs_web/router\.ex$",
+        ~r"lib/shubh_vivahs_web/(controllers|live|components)/.*\.(ex|heex)$"
       ]
     ]
 end
@@ -65,17 +65,17 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
 
-  config :phoenix_hologram, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  config :shubh_vivahs, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :phoenix_hologram, PhoenixHologram.Repo,
+  config :shubh_vivahs, ShubhVivahs.Repo,
     database:
       System.get_env("DATABASE_PATH") ||
         raise("""
         environment variable DATABASE_PATH is missing.
-        For example: /etc/phoenix_hologram/phoenix_hologram.db
+        For example: /etc/shubh_vivahs/shubh_vivahs.db
         """)
 
-  config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
+  config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       # Enable IPv6 and bind on all interfaces.
@@ -91,7 +91,7 @@ if config_env() == :prod do
   # To get SSL working, you will need to add the `https` key
   # to your endpoint configuration:
   #
-  #     config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
+  #     config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
   #       https: [
   #         ...,
   #         port: 443,
@@ -113,7 +113,7 @@ if config_env() == :prod do
   # We also recommend setting `force_ssl` in your config/prod.exs,
   # ensuring no data is ever sent via http, always redirecting to https:
   #
-  #     config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
+  #     config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
@@ -123,7 +123,7 @@ if config_env() == :prod do
   # In production you need to configure the mailer to use a different adapter.
   # Here is an example configuration for Mailgun:
   #
-  #     config :phoenix_hologram, PhoenixHologram.Mailer,
+  #     config :shubh_vivahs, ShubhVivahs.Mailer,
   #       adapter: Swoosh.Adapters.Mailgun,
   #       api_key: System.get_env("MAILGUN_API_KEY"),
   #       domain: System.get_env("MAILGUN_DOMAIN")

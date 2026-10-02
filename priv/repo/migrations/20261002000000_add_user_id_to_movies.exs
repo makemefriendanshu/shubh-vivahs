@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AddUserIdToMovies do
+defmodule ShubhVivahs.Repo.Migrations.AddUserIdToMovies do
   use Ecto.Migration
 
   # Nullable: movies ingested before this column existed (including a

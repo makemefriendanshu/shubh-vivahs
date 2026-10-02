@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.CreateEngagementTables do
+defmodule ShubhVivahs.Repo.Migrations.CreateEngagementTables do
   use Ecto.Migration
 
   def change do

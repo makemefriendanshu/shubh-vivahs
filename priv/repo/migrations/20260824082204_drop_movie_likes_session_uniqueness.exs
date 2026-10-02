@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.DropMovieLikesSessionUniqueness do
+defmodule ShubhVivahs.Repo.Migrations.DropMovieLikesSessionUniqueness do
   use Ecto.Migration
 
   # Movie likes are no longer "one per session" - every click on the Like
