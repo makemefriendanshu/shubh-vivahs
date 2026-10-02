@@ -26,7 +26,7 @@ defmodule PhoenixHologramWeb.Hologram.Pages.HomePage do
 
   def init(_params, component, _server) do
     movies =
-      FaceDetection.list_public_movies_ordered()
+      FaceDetection.list_superuser_public_movies_ordered()
       |> Enum.map(&build_card/1)
 
     component

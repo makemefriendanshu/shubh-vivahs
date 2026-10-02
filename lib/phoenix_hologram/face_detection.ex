@@ -142,6 +142,31 @@ defmodule PhoenixHologram.FaceDetection do
     )
   end
 
+  # The Home page's showcase is Anshuman's own catalog specifically, not
+  # "whoever happens to be a superuser" — a newly promoted superuser's
+  # uploads must not start appearing there, so this is pinned to his
+  # user id rather than derived from the `:is_superuser` flag.
+  @home_showcase_user_id 4
+
+  @doc """
+  Same as `list_public_movies_ordered/0`, further restricted to movies
+  owned by the Home page's showcase account (`@home_showcase_user_id`).
+  Anonymous visitors only ever see that one account's public videos, not
+  every public movie in the shared catalog, and not any other
+  superuser's.
+  """
+  def list_superuser_public_movies_ordered do
+    Repo.all(
+      from m in Movie,
+        where: m.public == true and m.user_id == ^@home_showcase_user_id,
+        order_by: [
+          asc: fragment("CASE WHEN ? IS NULL THEN 1 ELSE 0 END", m.position),
+          asc: m.position,
+          asc: m.id
+        ]
+    )
+  end
+
   @doc """
   Sets whether `movie_id` shows on public-facing pages. Returns `{:ok,
   movie}` or `{:error, changeset}`.
