@@ -381,7 +381,10 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
               old_scene.faces
               |> Enum.map(fn face ->
                 votes = Map.get(params.counts, face.id, 0)
-                mine? = if is_mine and face.id == params.face_id, do: params.voted?, else: face.mine?
+
+                mine? =
+                  if is_mine and face.id == params.face_id, do: params.voted?, else: face.mine?
+
                 %{face | votes: votes, mine?: mine?}
               end)
               |> mark_leading()

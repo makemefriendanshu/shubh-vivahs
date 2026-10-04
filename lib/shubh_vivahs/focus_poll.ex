@@ -61,8 +61,12 @@ defmodule ShubhVivahs.FocusPoll do
     |> where(movie_id: ^movie_id, scene_start_ms: ^scene_start_ms, scene_end_ms: ^scene_end_ms)
     |> select([v], {v.face_id, v.inserted_at})
     |> Repo.all()
-    |> Enum.group_by(fn {face_id, _inserted_at} -> face_id end, fn {_face_id, inserted_at} -> inserted_at end)
-    |> Map.new(fn {face_id, timestamps} -> {face_id, Enum.sort(timestamps, {:desc, NaiveDateTime})} end)
+    |> Enum.group_by(fn {face_id, _inserted_at} -> face_id end, fn {_face_id, inserted_at} ->
+      inserted_at
+    end)
+    |> Map.new(fn {face_id, timestamps} ->
+      {face_id, Enum.sort(timestamps, {:desc, NaiveDateTime})}
+    end)
   end
 
   @doc """

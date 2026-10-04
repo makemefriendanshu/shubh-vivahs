@@ -276,7 +276,9 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
     end
   end
 
-  defp maybe_mark_paid(component, "approved", amount), do: put_state(component, :paid_amount, amount)
+  defp maybe_mark_paid(component, "approved", amount),
+    do: put_state(component, :paid_amount, amount)
+
   defp maybe_mark_paid(component, _status, _amount), do: component
 
   def command(:check_code_status, %{code: code}, server) do
@@ -287,7 +289,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
       request ->
         server = put_subscription(server, {:promo_status, code})
 
-        put_action(server,
+        put_action(
+          server,
           :code_status_result,
           code: code,
           found?: true,
@@ -303,7 +306,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
     promo_status =
       if promo_code, do: ShubhVivahs.PromoRequests.get_status_by_code(promo_code)
 
-    put_action(server,
+    put_action(
+      server,
       :payment_check_result,
       amount: amount,
       paid?: paid?,
@@ -332,7 +336,11 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
 
     whatsapp_url = "https://wa.me/919880538028?text=#{URI.encode_www_form(message)}"
 
-    put_action(server, :promo_code_generated, code: code, amount: amount, whatsapp_url: whatsapp_url)
+    put_action(server, :promo_code_generated,
+      code: code,
+      amount: amount,
+      whatsapp_url: whatsapp_url
+    )
   end
 
   defp generate_code do
@@ -358,7 +366,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
   # selected, which also sets @paid_amount). Disables "Know the founder
   # personally?" so a visitor who already has this tier isn't prompted
   # to request it again.
-  defp already_unlocked?(_promo_status, _paid_amount, _selected_amount, true = _premium?), do: true
+  defp already_unlocked?(_promo_status, _paid_amount, _selected_amount, true = _premium?),
+    do: true
 
   defp already_unlocked?(promo_status, paid_amount, selected_amount, false = _premium?) do
     promo_status == "approved" or paid_amount == selected_amount

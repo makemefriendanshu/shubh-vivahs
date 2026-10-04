@@ -38,7 +38,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HowItWorksPage do
     %{
       icon: "hero-trophy",
       title: "Vote For The Leading Face",
-      body: "Cast a vote for anyone in the scene — the face with the most votes is marked \"Leading\"."
+      body:
+        "Cast a vote for anyone in the scene — the face with the most votes is marked \"Leading\"."
     }
   ]
 

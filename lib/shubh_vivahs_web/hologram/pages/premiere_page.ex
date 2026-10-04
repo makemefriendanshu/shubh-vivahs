@@ -82,10 +82,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierePage do
   defp filter_movies(movies, :private), do: Enum.filter(movies, &(!&1.public))
   defp filter_movies(movies, :all), do: movies
 
-  defp empty_message([], _filter), do: "No films yet. Once a video is ingested it will show up here."
+  defp empty_message([], _filter),
+    do: "No films yet. Once a video is ingested it will show up here."
+
   defp empty_message(_all_movies, :public), do: "No public films."
   defp empty_message(_all_movies, :private), do: "No private films."
-  defp empty_message(_all_movies, :all), do: "No films yet. Once a video is ingested it will show up here."
+
+  defp empty_message(_all_movies, :all),
+    do: "No films yet. Once a video is ingested it will show up here."
 
   defp list_movies(server) do
     if server.user_id do

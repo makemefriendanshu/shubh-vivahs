@@ -49,7 +49,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierExperiencePage do
     %{
       icon: "hero-trophy",
       title: "AI & Community Focus Winner",
-      body: "The AI's face recognition plus everyone's votes crown a \"leading\" face for each scene."
+      body:
+        "The AI's face recognition plus everyone's votes crown a \"leading\" face for each scene."
     },
     %{
       icon: "hero-heart",

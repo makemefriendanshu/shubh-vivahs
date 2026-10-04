@@ -105,7 +105,11 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AccountSettingsPage do
   end
 
   def action(:update_wedding_date, params, component) do
-    put_state(component, wedding_date: params.event.value, profile_error: nil, profile_success?: false)
+    put_state(component,
+      wedding_date: params.event.value,
+      profile_error: nil,
+      profile_success?: false
+    )
   end
 
   def action(:save_profile_clicked, _params, component) do
@@ -113,7 +117,10 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AccountSettingsPage do
     email = String.trim(component.state.email)
 
     if name == "" or email == "" do
-      put_state(component, profile_error: "Please fill in both your name and email.", profile_success?: false)
+      put_state(component,
+        profile_error: "Please fill in both your name and email.",
+        profile_success?: false
+      )
     else
       component
       |> put_state(profile_submitting?: true, profile_error: nil, profile_success?: false)
@@ -152,19 +159,35 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AccountSettingsPage do
   end
 
   def action(:profile_update_failed, params, component) do
-    put_state(component, profile_submitting?: false, profile_error: params.message, profile_success?: false)
+    put_state(component,
+      profile_submitting?: false,
+      profile_error: params.message,
+      profile_success?: false
+    )
   end
 
   def action(:update_current_password, params, component) do
-    put_state(component, current_password: params.event.value, password_error: nil, password_success?: false)
+    put_state(component,
+      current_password: params.event.value,
+      password_error: nil,
+      password_success?: false
+    )
   end
 
   def action(:update_new_password, params, component) do
-    put_state(component, new_password: params.event.value, password_error: nil, password_success?: false)
+    put_state(component,
+      new_password: params.event.value,
+      password_error: nil,
+      password_success?: false
+    )
   end
 
   def action(:update_confirm_password, params, component) do
-    put_state(component, confirm_password: params.event.value, password_error: nil, password_success?: false)
+    put_state(component,
+      confirm_password: params.event.value,
+      password_error: nil,
+      password_success?: false
+    )
   end
 
   def action(:change_password_clicked, _params, component) do
@@ -174,18 +197,30 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AccountSettingsPage do
 
     cond do
       current_password == "" or new_password == "" or confirm_password == "" ->
-        put_state(component, password_error: "Please fill in all three password fields.", password_success?: false)
+        put_state(component,
+          password_error: "Please fill in all three password fields.",
+          password_success?: false
+        )
 
       String.length(new_password) < 8 ->
-        put_state(component, password_error: "New password must be at least 8 characters.", password_success?: false)
+        put_state(component,
+          password_error: "New password must be at least 8 characters.",
+          password_success?: false
+        )
 
       new_password != confirm_password ->
-        put_state(component, password_error: "New password and confirmation don't match.", password_success?: false)
+        put_state(component,
+          password_error: "New password and confirmation don't match.",
+          password_success?: false
+        )
 
       true ->
         component
         |> put_state(password_submitting?: true, password_error: nil, password_success?: false)
-        |> put_command(:update_password, current_password: current_password, new_password: new_password)
+        |> put_command(:update_password,
+          current_password: current_password,
+          new_password: new_password
+        )
     end
   end
 
@@ -199,7 +234,11 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AccountSettingsPage do
   end
 
   def action(:password_update_failed, params, component) do
-    put_state(component, password_submitting?: false, password_error: params.message, password_success?: false)
+    put_state(component,
+      password_submitting?: false,
+      password_error: params.message,
+      password_success?: false
+    )
   end
 
   def command(:update_profile, params, server) do
@@ -219,7 +258,11 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AccountSettingsPage do
     end
   end
 
-  def command(:update_password, %{current_password: current_password, new_password: new_password}, server) do
+  def command(
+        :update_password,
+        %{current_password: current_password, new_password: new_password},
+        server
+      ) do
     user = get_stash(server, :current_user)
 
     case Accounts.update_password(user, current_password, new_password) do
@@ -230,7 +273,9 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AccountSettingsPage do
         put_action(server, :password_update_failed, message: "Current password is incorrect.")
 
       {:error, _changeset} ->
-        put_action(server, :password_update_failed, message: "Please check your new password and try again.")
+        put_action(server, :password_update_failed,
+          message: "Please check your new password and try again."
+        )
     end
   end
 

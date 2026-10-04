@@ -406,7 +406,9 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PlayerPage do
   def action(:play_part, params, component) do
     movie = component.state.movie
     new_video_url = play_url(movie.id, movie.selected_quality, params.part)
-    offset_ms = movie.segment_downloads |> Enum.find(&(&1.part == params.part)) |> Map.fetch!(:offset_ms)
+
+    offset_ms =
+      movie.segment_downloads |> Enum.find(&(&1.part == params.part)) |> Map.fetch!(:offset_ms)
 
     JS.exec("""
     const video = document.getElementById('player-video');

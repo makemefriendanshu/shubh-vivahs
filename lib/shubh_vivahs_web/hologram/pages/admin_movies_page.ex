@@ -82,10 +82,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
   defp filter_movies(movies, :private), do: Enum.filter(movies, &(!&1.public))
   defp filter_movies(movies, :all), do: movies
 
-  defp empty_message([], _filter), do: "No movies yet. Ingest one with `mix face_detection.ingest`."
+  defp empty_message([], _filter),
+    do: "No movies yet. Ingest one with `mix face_detection.ingest`."
+
   defp empty_message(_all_movies, :public), do: "No public movies."
   defp empty_message(_all_movies, :private), do: "No private movies."
-  defp empty_message(_all_movies, :all), do: "No movies yet. Ingest one with `mix face_detection.ingest`."
+
+  defp empty_message(_all_movies, :all),
+    do: "No movies yet. Ingest one with `mix face_detection.ingest`."
 
   defp list_movies do
     FaceDetection.list_movies_ordered()

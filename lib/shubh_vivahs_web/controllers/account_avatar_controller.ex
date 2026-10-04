@@ -47,7 +47,10 @@ defmodule ShubhVivahsWeb.AccountAvatarController do
     else
       {:error, %Ecto.Changeset{}} ->
         conn
-        |> put_session("avatar_error", "Photo saved, but couldn't be attached to your profile — please try again.")
+        |> put_session(
+          "avatar_error",
+          "Photo saved, but couldn't be attached to your profile — please try again."
+        )
         |> redirect(to: "/account-settings")
 
       {:error, message} when is_binary(message) ->

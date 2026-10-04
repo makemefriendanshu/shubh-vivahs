@@ -49,7 +49,9 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
     movie = movie_record && build_movie(movie_record)
 
     label_drafts =
-      Map.new(faces, fn face -> {face.id, %{label: face.label || "", subtitle: face.subtitle || ""}} end)
+      Map.new(faces, fn face ->
+        {face.id, %{label: face.label || "", subtitle: face.subtitle || ""}}
+      end)
 
     component =
       component
@@ -275,7 +277,11 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
   end
 
   def action(:update_label_draft, params, component) do
-    put_state(component, :label_drafts, put_draft_field(component, params.face_id, :label, params.event.value))
+    put_state(
+      component,
+      :label_drafts,
+      put_draft_field(component, params.face_id, :label, params.event.value)
+    )
   end
 
   def action(:update_subtitle_draft, params, component) do
