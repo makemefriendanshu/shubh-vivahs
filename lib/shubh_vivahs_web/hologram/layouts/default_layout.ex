@@ -257,7 +257,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
             <a href="/" class="hover:underline shrink-0">Home</a>
             <span class="opacity-50 shrink-0">|</span>
             <div class="dropdown dropdown-hover shrink-0">
-              <div tabindex="0" role="button" class="hover:underline cursor-pointer">How It Works ▾</div>
+              <Link to={HowItWorksPage} class="hover:underline cursor-pointer">How It Works ▾</Link>
               <ul
                 tabindex="0"
                 class="dropdown-content menu menu-sm bg-gradient-to-b from-primary to-primary/90 text-primary-content rounded-box z-20 mt-1 w-80 max-w-[calc(100vw-2rem)] p-2 shadow normal-case tracking-normal text-left"
@@ -304,7 +304,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
             <a href="/#celebrations" class="hover:underline shrink-0">View Core Example</a>
             <span class="opacity-50 shrink-0">|</span>
             <div class="dropdown dropdown-hover shrink-0">
-              <div tabindex="0" role="button" class="hover:underline cursor-pointer">Feature Walkthrough ▾</div>
+              <a href="/premiere" class="hover:underline cursor-pointer">Feature Walkthrough ▾</a>
               <ul
                 tabindex="0"
                 class="dropdown-content menu menu-sm bg-gradient-to-b from-primary to-primary/90 text-primary-content rounded-box z-20 mt-1 w-64 max-h-80 overflow-y-auto p-2 shadow normal-case tracking-normal text-left"
@@ -334,7 +334,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
             <a href="/#start-your-story" class="hover:underline shrink-0">Create Yours</a>
             <span class="opacity-50 shrink-0">|</span>
             <div class="dropdown dropdown-hover shrink-0">
-              <div tabindex="0" role="button" class="hover:underline cursor-pointer">Recognised Faces ▾</div>
+              <a href="/admin" class="hover:underline cursor-pointer">Recognised Faces ▾</a>
               <ul
                 tabindex="0"
                 class="dropdown-content menu menu-sm bg-gradient-to-b from-primary to-primary/90 text-primary-content rounded-box z-20 mt-1 w-64 max-h-80 overflow-y-auto p-2 shadow normal-case tracking-normal text-left"
