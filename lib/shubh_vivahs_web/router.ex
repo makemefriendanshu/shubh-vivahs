@@ -1,0 +1,90 @@
+defmodule ShubhVivahsWeb.Router do
+  use ShubhVivahsWeb, :router
+
+  pipeline :browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {ShubhVivahsWeb.Layouts, :root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+  end
+
+  # Same as :browser minus :protect_from_forgery — for POST routes
+  # (AccountAvatarController's and VideoUploadController's uploads)
+  # whose forms are rendered by a Hologram page rather than this router,
+  # so they were never able to populate Plug.CSRFProtection's own
+  # session key. Those routes validate Hologram's own session-bound
+  # CSRF token manually instead — see AccountAvatarController's
+  # moduledoc.
+  pipeline :browser_no_csrf do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {ShubhVivahsWeb.Layouts, :root}
+    plug :put_secure_browser_headers
+  end
+
+  pipeline :api do
+    plug :accepts, ["json"]
+  end
+
+  pipeline :require_superuser do
+    plug ShubhVivahsWeb.Plugs.RequireSuperuser
+  end
+
+  pipeline :require_authenticated_user do
+    plug ShubhVivahsWeb.Plugs.RequireAuthenticatedUser
+  end
+
+  scope "/", ShubhVivahsWeb do
+    pipe_through :browser
+
+    get "/premiere/videos/:id", VideoController, :show
+    get "/premiere/videos/:id/thumbnail", MovieThumbnailController, :show
+    # Same thumbnail; the .jpg extension is what makes Cloudflare cache it.
+    get "/premiere/videos/:id/thumbnail.jpg", MovieThumbnailController, :show
+    get "/premiere/videos/:id/download", VideoController, :download
+    get "/premiere/videos/:id/download/:part", VideoController, :download_chunk
+    get "/premiere/videos/:id/play/:part", VideoController, :play_chunk
+    get "/account/avatar/:user_id", AccountAvatarController, :show
+  end
+
+  scope "/", ShubhVivahsWeb do
+    pipe_through [:browser, :require_superuser]
+
+    get "/admin/faces/:id/thumbnail", FaceThumbnailController, :show
+    get "/admin/analytics/export.csv", AdminAnalyticsCsvController, :export
+  end
+
+  scope "/", ShubhVivahsWeb do
+    pipe_through [:browser_no_csrf, :require_authenticated_user]
+
+    post "/account/avatar", AccountAvatarController, :create
+    post "/videos/upload/chunk", VideoUploadController, :create_chunk
+    post "/videos/upload/finalize", VideoUploadController, :finalize
+    post "/videos/upload/abort", VideoUploadController, :abort
+  end
+
+  # Other scopes may use custom stacks.
+  # scope "/api", ShubhVivahsWeb do
+  #   pipe_through :api
+  # end
+
+  # Enable LiveDashboard and Swoosh mailbox preview in development
+  if Application.compile_env(:shubh_vivahs, :dev_routes) do
+    # If you want to use the LiveDashboard in production, you should put
+    # it behind authentication and allow only admins to access it.
+    # If your application does not have an admins-only section yet,
+    # you can use Plug.BasicAuth to set up some basic authentication
+    # as long as you are also using SSL (which you should anyway).
+    import Phoenix.LiveDashboard.Router
+
+    scope "/dev" do
+      pipe_through :browser
+
+      live_dashboard "/dashboard", metrics: ShubhVivahsWeb.Telemetry
+      forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
+  end
+end

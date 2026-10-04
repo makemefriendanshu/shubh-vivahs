@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.CreateLeads do
+defmodule ShubhVivahs.Repo.Migrations.CreateLeads do
   use Ecto.Migration
 
   def change do
