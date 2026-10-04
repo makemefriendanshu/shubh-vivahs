@@ -60,7 +60,7 @@
         el.setAttribute('role', 'status');
         el.setAttribute('aria-live', 'polite');
         el.innerHTML =
-          '<img src="/images/home-logo.png" alt="Shubh Vivahs" class="hologram-loading-logo" />' +
+          '<img src="/images/home-logo.webp" alt="Shubh Vivahs" class="hologram-loading-logo" />' +
           '<div class="hologram-loading-spinner"></div>';
         document.documentElement.appendChild(el);
 
@@ -85,9 +85,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title default="Shubh Vivahs" phx-no-format>{assigns[:page_title]}</.live_title>
-    <link rel="icon" type="image/png" href={~p"/images/home-logo.png"} />
+    <link rel="icon" type="image/png" href={~p"/images/home-logo-icon.png"} />
     <link rel="alternate icon" href={~p"/favicon.ico"} sizes="any" />
-    <link phx-track-static rel="stylesheet" href={"/assets/css/app.css?v=#{asset_version()}"} />
+    <link phx-track-static rel="stylesheet" href={"/assets/css/app.css?vsn=#{asset_version()}"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
     <script>

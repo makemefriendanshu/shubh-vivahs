@@ -661,6 +661,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
               <video
                 id="science-demo-video"
                 controls
+                preload="metadata"
                 src={@demo_seed_scene.video_src}
                 data-scene-boundaries={@demo_scene_boundaries_json}
                 class="w-full lg:w-2/3 aspect-video rounded shrink-0 bg-black"

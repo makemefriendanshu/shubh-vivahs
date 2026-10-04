@@ -53,7 +53,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
           %{
             id: movie.id,
             title: movie.title || movie.path,
-            thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail"
+            thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg"
           }
         end)
       )
@@ -66,7 +66,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
   defp build_hero_images(movies) do
     Enum.map(0..(@hero_slide_count - 1), fn i ->
       movie = Enum.at(movies, rem(i, length(movies)))
-      %{url: "/premiere/videos/#{movie.id}/thumbnail", delay_s: i * @hero_slide_seconds}
+      %{url: "/premiere/videos/#{movie.id}/thumbnail.jpg", delay_s: i * @hero_slide_seconds}
     end)
   end
 
@@ -186,7 +186,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
             el.setAttribute('role', 'status');
             el.setAttribute('aria-live', 'polite');
             el.innerHTML =
-              '<img src="/images/home-logo.png" alt="Shubh Vivahs" class="hologram-loading-logo" />' +
+              '<img src="/images/home-logo.webp" alt="Shubh Vivahs" class="hologram-loading-logo" />' +
               '<div class="hologram-loading-spinner"></div>';
             document.documentElement.appendChild(el);
 
@@ -211,9 +211,9 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
         </script>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Shubh Vivahs</title>
-        <link rel="icon" type="image/png" href="/images/home-logo.png" />
+        <link rel="icon" type="image/png" href="/images/home-logo-icon.png" />
         <link rel="alternate icon" href="/favicon.ico" sizes="any" />
-        <link rel="stylesheet" href={"/assets/css/app.css?v=#{@asset_version}"} />
+        <link rel="stylesheet" href={"/assets/css/app.css?vsn=#{@asset_version}"} />
         <script>
           {%raw}
           (function () {
@@ -244,7 +244,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
         <div class="bg-base-100 border-b-[6px] border-double border-primary px-4 sm:px-6 py-4 text-center overflow-x-hidden">
           <a href="/" class="inline-flex flex-nowrap items-center justify-center gap-1 sm:gap-4">
             <img src="/images/brass-lamp.png" class="hidden sm:block sm:h-28 w-auto shrink-0" alt="" aria-hidden="true" />
-            <img src="/images/home-logo.png" class="h-20 sm:h-36 w-auto shrink-0" alt="ShubhVivahs.com" />
+            <img src="/images/home-logo.webp" class="h-20 sm:h-36 w-auto shrink-0" alt="ShubhVivahs.com" />
             <img src="/images/brass-lamp.png" class="hidden sm:block sm:h-28 w-auto shrink-0 scale-x-[-1]" alt="" aria-hidden="true" />
           </a>
           <p class="font-display text-[0.6rem] sm:text-xs tracking-[0.3em] uppercase text-primary font-semibold mt-1">

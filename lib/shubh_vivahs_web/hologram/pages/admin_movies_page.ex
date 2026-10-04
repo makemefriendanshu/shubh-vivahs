@@ -106,7 +106,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
         visibility_icon: visibility_icon(movie.public),
         description: movie.description,
         event_line: format_event_line(movie),
-        thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail",
+        thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg",
         highlight?: highlight_card?(movie)
       }
     end)

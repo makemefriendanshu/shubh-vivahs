@@ -178,7 +178,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HomePage do
       status: movie.status,
       description: movie.description,
       event_line: format_event_line(movie),
-      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail",
+      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg",
       highlight?: highlight_card?(movie)
     }
   end

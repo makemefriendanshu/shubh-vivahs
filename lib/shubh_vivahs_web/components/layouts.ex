@@ -38,7 +38,7 @@ defmodule ShubhVivahsWeb.Layouts do
     <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
         <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/home-logo.png"} width="36" />
+          <img src={~p"/images/home-logo.webp"} width="36" />
           <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
         </a>
       </div>

@@ -715,7 +715,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
       description: movie.description,
       event_date_input: date_to_input(movie.event_date),
       location: movie.location,
-      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail"
+      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg"
     }
   end
 

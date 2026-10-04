@@ -9,6 +9,11 @@ defmodule ShubhVivahs.MovieThumbnail do
 
   @offset_seconds 5
 
+  # Downscaled from the source's full resolution (1080p+ frames came out at
+  # ~400 KB) — big enough for the full-width hero carousel, small enough
+  # that a page of cards doesn't saturate a slow uplink.
+  @max_width 960
+
   @doc "Path the cached thumbnail for this movie would live at, whether or not it exists yet."
   @spec thumbnail_path(Movie.t()) :: String.t()
   def thumbnail_path(%Movie{id: id}) do
@@ -35,8 +40,10 @@ defmodule ShubhVivahs.MovieThumbnail do
       source,
       "-vframes",
       "1",
+      "-vf",
+      "scale='min(#{@max_width},iw)':-2",
       "-q:v",
-      "2",
+      "5",
       dest
     ]
 

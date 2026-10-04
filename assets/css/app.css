@@ -170,7 +170,7 @@ p, span, td, li {
 .wedding-bg {
   background-image:
     linear-gradient(to bottom, color-mix(in oklch, var(--color-base-100) 88%, transparent), color-mix(in oklch, var(--color-base-100) 88%, transparent)),
-    url("/images/wedding-bg.png");
+    url("/images/wedding-bg.webp");
   background-repeat: repeat-y, repeat-y;
   background-size: 100% auto, 100% auto;
   background-position: top center;

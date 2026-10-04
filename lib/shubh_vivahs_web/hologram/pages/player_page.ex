@@ -184,7 +184,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PlayerPage do
       duration: VideoMetadata.format_duration(metadata.duration_ms),
       description: movie.description,
       video_url: video_url(movie.id, selected_quality),
-      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail",
+      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg",
       download_url: download_url(movie.id, selected_quality),
       segment_downloads: segment_downloads,
       segment_count: length(segment_downloads),
@@ -375,6 +375,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PlayerPage do
     if (video) {
       const time = video.currentTime;
       const wasPlaying = !video.paused;
+      // The tag's preload="none" would otherwise hold back loadedmetadata.
+      video.preload = 'auto';
       video.src = #{inspect(new_video_url)};
       video.addEventListener('loadedmetadata', () => {
         video.currentTime = time;
@@ -413,6 +415,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PlayerPage do
     JS.exec("""
     const video = document.getElementById('player-video');
     if (video) {
+      video.preload = 'auto';
       video.src = #{inspect(new_video_url)};
       video.addEventListener('loadedmetadata', () => {
         video.currentTime = 0;
@@ -436,6 +439,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PlayerPage do
     JS.exec("""
     const video = document.getElementById('player-video');
     if (video) {
+      video.preload = 'auto';
       video.src = #{inspect(new_video_url)};
       video.addEventListener('loadedmetadata', () => {
         video.currentTime = 0;
@@ -682,6 +686,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PlayerPage do
                   data-movie-id={@movie.id}
                   data-part-offset-ms={@movie.part_offset_ms}
                   controls
+                  preload="none"
                   poster={@movie.thumbnail_url}
                   class="w-full rounded-box shadow-xl"
                   src={@movie.video_url}

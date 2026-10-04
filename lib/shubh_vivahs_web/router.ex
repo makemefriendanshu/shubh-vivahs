@@ -42,6 +42,8 @@ defmodule ShubhVivahsWeb.Router do
 
     get "/premiere/videos/:id", VideoController, :show
     get "/premiere/videos/:id/thumbnail", MovieThumbnailController, :show
+    # Same thumbnail; the .jpg extension is what makes Cloudflare cache it.
+    get "/premiere/videos/:id/thumbnail.jpg", MovieThumbnailController, :show
     get "/premiere/videos/:id/download", VideoController, :download
     get "/premiere/videos/:id/download/:part", VideoController, :download_chunk
     get "/premiere/videos/:id/play/:part", VideoController, :play_chunk

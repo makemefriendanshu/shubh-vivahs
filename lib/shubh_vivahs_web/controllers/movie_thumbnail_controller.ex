@@ -13,8 +13,11 @@ defmodule ShubhVivahsWeb.MovieThumbnailController do
             do: MovieThumbnail.thumbnail_path(movie),
             else: MovieThumbnail.generate!(movie)
 
+        # Public + a day so Cloudflare (and browsers) serve repeat views
+        # without touching this server; a movie's poster frame never changes.
         conn
         |> put_resp_content_type("image/jpeg", nil)
+        |> put_resp_header("cache-control", "public, max-age=86400")
         |> send_file(200, path)
 
       nil ->
