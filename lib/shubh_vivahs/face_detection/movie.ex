@@ -5,7 +5,8 @@ defmodule ShubhVivahs.FaceDetection.Movie do
   @statuses ~w(pending processing done failed)
 
   schema "movies" do
-    field(:path, :string)
+    # Stored relative to the uploads folder when it's inside it — see MoviePath.
+    field(:path, ShubhVivahs.FaceDetection.MoviePath)
     field(:title, :string)
     field(:status, :string, default: "pending")
     # Display order across every movie listing (Premiere Hall, admin, nav

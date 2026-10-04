@@ -40,6 +40,7 @@ defmodule ShubhVivahs.VideoUpload do
   alias ShubhVivahs.Accounts.User
   alias ShubhVivahs.FaceDetection
   alias ShubhVivahs.FaceDetection.Movie
+  alias ShubhVivahs.FaceDetection.MoviePath
   alias ShubhVivahs.Repo
 
   @allowed_extensions ~w(.mp4 .mov .webm .mkv .m4v)
@@ -256,9 +257,9 @@ defmodule ShubhVivahs.VideoUpload do
       old_dir = Path.join(dir, existing)
       File.rename!(old_dir, new_dir)
 
-      Repo.all(
-        from m in Movie, where: m.user_id == ^id and like(m.path, ^"#{old_dir}/%")
-      )
+      # `path` is stored relative to `dir` (see MoviePath), and `like/2`
+      # doesn't run the pattern through that type, so match the relative form.
+      Repo.all(from m in Movie, where: m.user_id == ^id and like(m.path, ^"#{existing}/%"))
       |> Enum.each(fn movie ->
         new_path = String.replace_prefix(movie.path, old_dir, new_dir)
         movie |> Movie.changeset(%{path: new_path}) |> Repo.update!()
@@ -341,9 +342,7 @@ defmodule ShubhVivahs.VideoUpload do
     safe_title = title |> String.trim() |> filesystem_safe()
     unique = "#{System.system_time(:second)}-#{System.unique_integer([:positive])}"
 
-    Path.expand(
-      Path.join([uploads_dir(), user_dir(user), "#{unique}-#{safe_title}#{ext}"])
-    )
+    Path.expand(Path.join([uploads_dir(), user_dir(user), "#{unique}-#{safe_title}#{ext}"]))
   end
 
   # "User type" and "tier" both collapse to the one real distinction this
@@ -378,6 +377,6 @@ defmodule ShubhVivahs.VideoUpload do
     (Enum.reverse(rest) |> Enum.join(", ")) <> ", or " <> last
   end
 
-  defp uploads_dir, do: Path.join(:code.priv_dir(:shubh_vivahs), "face_detection/uploads")
+  defp uploads_dir, do: MoviePath.uploads_dir()
   defp chunks_root, do: Path.join(uploads_dir(), "tmp")
 end
