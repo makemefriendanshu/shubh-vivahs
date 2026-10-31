@@ -10,9 +10,9 @@ defmodule Mix.Tasks.Premiere.GeneratePreviews do
 
   use Mix.Task
 
-  alias PhoenixHologram.FaceDetection.Movie
-  alias PhoenixHologram.Repo
-  alias PhoenixHologram.VideoPreview
+  alias ShubhVivahs.FaceDetection.Movie
+  alias ShubhVivahs.Repo
+  alias ShubhVivahs.VideoPreview
 
   @shortdoc "Generates cached low-bitrate preview proxies for movies"
 

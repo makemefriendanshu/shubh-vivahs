@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AddSubcommentsToComments do
+defmodule ShubhVivahs.Repo.Migrations.AddSubcommentsToComments do
   use Ecto.Migration
 
   def change do

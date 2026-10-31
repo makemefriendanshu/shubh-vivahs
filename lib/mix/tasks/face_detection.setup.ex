@@ -77,7 +77,7 @@ defmodule Mix.Tasks.FaceDetection.Setup do
     tmp_dir =
       Path.join(
         System.tmp_dir!(),
-        "phoenix_hologram_ffmpeg_setup_#{:erlang.unique_integer([:positive])}"
+        "shubh_vivahs_ffmpeg_setup_#{:erlang.unique_integer([:positive])}"
       )
 
     File.mkdir_p!(tmp_dir)

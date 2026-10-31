@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AddSessionIdToLikes do
+defmodule ShubhVivahs.Repo.Migrations.AddSessionIdToLikes do
   use Ecto.Migration
 
   def change do

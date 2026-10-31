@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      /* Self-contained (no dependency on app.css, which loads later and
+         can still be in flight on a slow connection) styling for the
+         full-page loading overlay built by the script right below. Must
+         stay ahead of the app.css <link> further down: a stylesheet
+         blocks execution of any synchronous <script> that follows it, so
+         placing this after that link would delay the overlay itself
+         until app.css finishes loading — exactly what it's meant to
+         cover for. Colors upgrade automatically to the active daisyUI
+         theme once app.css loads, via CSS variable fallbacks. */
+      .hologram-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        background-color: var(--color-base-100, #faf3e8);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
+      .hologram-loading.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .hologram-loading.is-hidden {
+        display: none;
+      }
+      .hologram-loading-logo {
+        height: 3.5rem;
+        width: auto;
+      }
+      .hologram-loading-spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        border: 3px solid color-mix(in oklch, var(--color-primary, #c9932f) 25%, transparent);
+        border-top-color: var(--color-primary, #c9932f);
+        animation: hologram-loading-spin 0.8s linear infinite;
+      }
+      @keyframes hologram-loading-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+    <script>
+      (function () {
+        // Shows a full-page spinner once loading is taking a moment
+        // (revealed after a short delay so a fast load never flashes
+        // it), hidden once the page has fully loaded.
+        var el = document.createElement('div');
+        el.id = 'hologram-loading';
+        el.className = 'hologram-loading';
+        el.setAttribute('role', 'status');
+        el.setAttribute('aria-live', 'polite');
+        el.innerHTML =
+          '<img src="/images/home-logo.webp" alt="Shubh Vivahs" class="hologram-loading-logo" />' +
+          '<div class="hologram-loading-spinner"></div>';
+        document.documentElement.appendChild(el);
+
+        var revealTimer = setTimeout(function () {
+          el.classList.add('is-visible');
+        }, 250);
+
+        function hide() {
+          clearTimeout(revealTimer);
+          el.classList.remove('is-visible');
+          el.classList.add('is-hidden');
+          setTimeout(function () { el.remove(); }, 250);
+        }
+
+        if (document.readyState === 'complete') {
+          hide();
+        } else {
+          window.addEventListener('load', hide);
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <.live_title default="Shubh Vivahs" phx-no-format>{assigns[:page_title]}</.live_title>
+    <link rel="icon" type="image/png" href={~p"/images/home-logo-icon.png"} />
+    <link rel="alternate icon" href={~p"/favicon.ico"} sizes="any" />
+    <link phx-track-static rel="stylesheet" href={"/assets/css/app.css?vsn=#{asset_version()}"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+    <script>
+      (() => {
+        const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+        const setTheme = (theme) => {
+          if (theme === "system") {
+            localStorage.removeItem("phx:theme");
+            document.documentElement.setAttribute("data-theme", systemTheme());
+            document.documentElement.setAttribute("data-theme-source", "system");
+          } else {
+            localStorage.setItem("phx:theme", theme);
+            document.documentElement.setAttribute("data-theme", theme);
+            document.documentElement.setAttribute("data-theme-source", "user");
+          }
+        };
+        if (!document.documentElement.hasAttribute("data-theme")) {
+          setTheme(localStorage.getItem("phx:theme") || "system");
+        }
+        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
+        window.addEventListener("phx:set-theme", (e) => {
+          setTheme(e.target.dataset.phxTheme);
+          // Close the theme dropdown: it stays open via CSS :focus-within,
+          // and clicking a menu button focuses it rather than clearing focus.
+          document.activeElement && document.activeElement.blur();
+        });
+
+        matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+          if (document.documentElement.getAttribute("data-theme-source") === "system") {
+            document.documentElement.setAttribute("data-theme", systemTheme());
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body class="wedding-bg min-h-screen">
+    {@inner_content}
+  </body>
+</html>

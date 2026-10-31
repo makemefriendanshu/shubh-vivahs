@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.CreateFocusVotes do
+defmodule ShubhVivahs.Repo.Migrations.CreateFocusVotes do
   use Ecto.Migration
 
   def change do

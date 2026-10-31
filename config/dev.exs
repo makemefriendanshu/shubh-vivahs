@@ -1,7 +1,7 @@
 import Config
 
-config :phoenix_hologram, PhoenixHologram.Repo,
-  database: Path.expand("../priv/face_detection/phoenix_hologram_dev.db", __DIR__)
+config :shubh_vivahs, ShubhVivahs.Repo,
+  database: Path.expand("../priv/face_detection/shubh_vivahs_dev.db", __DIR__)
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -9,7 +9,7 @@ config :phoenix_hologram, PhoenixHologram.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
+config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}],
@@ -18,8 +18,8 @@ config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "9uyw8wIzVX7hJk+J3kc69ESfqbb53Ewn+ckbdhdy7JCqjP4pc9y0AKIazXwRt/MY",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:phoenix_hologram, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:phoenix_hologram, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:shubh_vivahs, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:shubh_vivahs, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -46,7 +46,7 @@ config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
 # different ports.
 
 # Enable dev routes for dashboard and mailbox
-config :phoenix_hologram, dev_routes: true
+config :shubh_vivahs, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

@@ -3,3 +3,16 @@
 # To ban all spiders from the entire site uncomment the next two lines:
 # User-agent: *
 # Disallow: /
+
+User-agent: *
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /upload
+Disallow: /premiere/
+Disallow: /share
+Disallow: /invite-team
+Disallow: /sent-invitations
+Disallow: /edit-event-details
+Disallow: /upgrade
+
+Sitemap: https://shubhvivahs.com/sitemap.xml

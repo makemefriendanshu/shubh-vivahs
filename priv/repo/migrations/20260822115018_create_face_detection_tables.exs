@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.CreateFaceDetectionTables do
+defmodule ShubhVivahs.Repo.Migrations.CreateFaceDetectionTables do
   use Ecto.Migration
 
   def change do

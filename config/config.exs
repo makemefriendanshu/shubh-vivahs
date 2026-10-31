@@ -7,8 +7,8 @@
 # General application configuration
 import Config
 
-config :phoenix_hologram,
-  ecto_repos: [PhoenixHologram.Repo],
+config :shubh_vivahs,
+  ecto_repos: [ShubhVivahs.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # busy_timeout raised from the 2000ms default: SQLite allows only one writer at a
@@ -16,19 +16,19 @@ config :phoenix_hologram,
 # to be able to wait out a queued write transaction rather than give up early with
 # Exqlite.Error. Read-only queries are unaffected (WAL allows concurrent readers),
 # so this doesn't touch normal page-load throughput the way pool_size: 1 would.
-config :phoenix_hologram, PhoenixHologram.Repo,
+config :shubh_vivahs, ShubhVivahs.Repo,
   adapter: Ecto.Adapters.SQLite3,
   busy_timeout: 10_000
 
 # Configure the endpoint
-config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
+config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: PhoenixHologramWeb.ErrorHTML, json: PhoenixHologramWeb.ErrorJSON],
+    formats: [html: ShubhVivahsWeb.ErrorHTML, json: ShubhVivahsWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: PhoenixHologram.PubSub,
+  pubsub_server: ShubhVivahs.PubSub,
   live_view: [signing_salt: "NiIwR9sX"]
 
 # Configure LiveView
@@ -43,12 +43,12 @@ config :phoenix_live_view,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :phoenix_hologram, PhoenixHologram.Mailer, adapter: Swoosh.Adapters.Local
+config :shubh_vivahs, ShubhVivahs.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
-  phoenix_hologram: [
+  shubh_vivahs: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
@@ -58,7 +58,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.3.0",
-  phoenix_hologram: [
+  shubh_vivahs: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css

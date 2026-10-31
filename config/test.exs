@@ -1,18 +1,26 @@
 import Config
 
-config :phoenix_hologram, PhoenixHologram.Repo,
-  database: Path.expand("../priv/face_detection/phoenix_hologram_test.db", __DIR__),
-  pool: Ecto.Adapters.SQL.Sandbox
+config :shubh_vivahs, ShubhVivahs.Repo,
+  database: Path.expand("../priv/face_detection/shubh_vivahs_test.db", __DIR__),
+  pool: Ecto.Adapters.SQL.Sandbox,
+  # SQLite allows one writer at a time and every sandboxed test holds its
+  # transaction until it ends, so async tests that write queue up behind
+  # each other. Wait for the lock (default 2s) instead of failing with
+  # "Database busy".
+  busy_timeout: 15_000
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :phoenix_hologram, PhoenixHologramWeb.Endpoint,
+# Photo album files (ShubhVivahs.Photos.storage_dir/0), away from priv/photos.
+config :shubh_vivahs, :photos_dir, Path.join(System.tmp_dir!(), "shubh_vivahs_test_photos")
+
+config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "sbwO18j0rJQy23NZI4eYfEwyNu8LEDG10Lrcnn4u6PH/yPgiaVpKjqU5v9pPK0/6",
   server: false
 
 # In test we don't send emails
-config :phoenix_hologram, PhoenixHologram.Mailer, adapter: Swoosh.Adapters.Test
+config :shubh_vivahs, ShubhVivahs.Mailer, adapter: Swoosh.Adapters.Test
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false

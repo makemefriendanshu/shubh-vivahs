@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.CreatePromoRequests do
+defmodule ShubhVivahs.Repo.Migrations.CreatePromoRequests do
   use Ecto.Migration
 
   def change do
