@@ -34,7 +34,11 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
 
   def init(_params, component, server) do
     server = put_subscription(server, :movies_changed)
-    component = put_filtered_movies(component, list_movies(), :all)
+
+    component =
+      component
+      |> put_filtered_movies(list_movies(), :all)
+      |> put_state(:albums, list_albums())
 
     {component, server}
   end
@@ -97,6 +101,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
     |> Enum.map(fn movie ->
       %{
         id: movie.id,
+        slug: ShubhVivahs.MovieSlug.ensure(movie).slug,
+        uploader_slug: ShubhVivahs.MovieSlug.uploader_slug(movie),
         title: movie.title || movie.path,
         status: movie.status,
         face_count: length(movie.faces),
@@ -108,6 +114,27 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
         event_line: format_event_line(movie),
         thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg",
         highlight?: highlight_card?(movie)
+      }
+    end)
+  end
+
+  defp list_albums do
+    :all
+    |> ShubhVivahs.Photos.list_albums()
+    |> Enum.map(fn album ->
+      cover = ShubhVivahs.Photos.cover_photo(album)
+
+      %{
+        id: album.id,
+        title: album.title,
+        count: ShubhVivahs.Photos.photo_count(album),
+        people: length(ShubhVivahs.Photos.people(album)),
+        cover_url: cover && ShubhVivahs.Photos.thumb_url(cover),
+        admin_path:
+          "/admin/#{ShubhVivahs.MovieSlug.uploader_slug_for(album.user_id)}/photos/#{album.slug}",
+        visibility_label: visibility_label(album.public),
+        visibility_class: visibility_class(album.public),
+        visibility_icon: visibility_icon(album.public)
       }
     end)
   end
@@ -198,6 +225,24 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
             </button>
           </div>
 
+          {%if @albums != []}
+            <div id="admin-albums" class="mb-8">
+              <h3 class="font-display text-lg mb-3">Photo Albums</h3>
+              <div class="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3">
+                {%for album <- @albums}
+                  <a href={album.admin_path} id={"admin-album-#{album.id}"} class="card card-stock shadow hover:shadow-xl transition flex flex-row items-center gap-3 p-3">
+                    <img src={album.cover_url} alt="" loading="lazy" class="w-16 h-16 rounded-box object-cover shrink-0 bg-base-300" />
+                    <div class="min-w-0">
+                      <p class="font-display truncate">{album.title}</p>
+                      <p class="text-xs text-base-content/60">{album.count} photos · {album.people} people</p>
+                      <span class={album.visibility_class}><span class={album.visibility_icon}></span>{album.visibility_label}</span>
+                    </div>
+                  </a>
+                {/for}
+              </div>
+            </div>
+          {/if}
+
           {%if @movies == []}
             <div class="card card-stock shadow-xl">
               <div class="card-body">
@@ -214,14 +259,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
                     "card card-stock shadow-xl hover:shadow-2xl transition overflow-hidden"
                   end
                 }>
-                  <Link to={AdminMoviePage, id: movie.id}>
+                  <Link to={AdminMoviePage, uploader: movie.uploader_slug, name: movie.slug}>
                     <figure class="aspect-video bg-base-300">
                       <img src={movie.thumbnail_url} alt={movie.title} class="w-full h-full object-cover" />
                     </figure>
                   </Link>
-                  <div class="card-body items-center text-center">
-                    <h2 class="card-title font-display">
-                      <Link to={PlayerPage, id: movie.id} class="hover:underline">{movie.title}</Link>
+                  <div class="card-body items-center text-center p-4 sm:p-8">
+                    <h2 class="card-title font-display break-words">
+                      <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug} class="hover:underline">{movie.title}</Link>
                     </h2>
                     {%if movie.description}
                       <p class={
@@ -241,7 +286,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
                         end
                       }>{movie.event_line}</p>
                     {/if}
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap justify-center gap-2">
                       <span class="badge badge-outline badge-primary">{movie.status}</span>
                       <span class={
                         if movie.highlight? do
@@ -261,10 +306,10 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage do
                       </button>
                     </div>
                     <div class="flex flex-wrap justify-center gap-2 mt-2">
-                      <Link to={AdminMoviePage, id: movie.id} class="btn btn-sm btn-secondary">
+                      <Link to={AdminMoviePage, uploader: movie.uploader_slug, name: movie.slug} class="btn btn-sm btn-secondary">
                         Manage Faces ⚙
                       </Link>
-                      <Link to={PlayerPage, id: movie.id} class="btn btn-sm btn-primary">
+                      <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug} class="btn btn-sm btn-primary">
                         Watch ▶
                       </Link>
                     </div>

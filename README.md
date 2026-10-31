@@ -21,7 +21,8 @@ A wedding film is usually watched once and forgotten. The best moments belong to
 ## Status
 
 - ✅ **Guests:** Premiere Hall, live focus voting, comments/replies/likes, view counts, quality picker (original/720p/360p), 35 themes.
-- ✅ **Couple:** film library with public/private toggle, scene browser with face naming, free-access request review, live analytics with CSV export.
+- ✅ **Couple:** film library with public/private toggle, scene browser with face naming and a "Run face recognition" button, free-access request review, live analytics with CSV export.
+- ✅ **Library:** series (grouped by season, next-episode links), movies, and songs at `/library`, signed-in members only, with English subtitles when the file has them. Series and movies play in the Premiere player with face detection, focus voting, comments, likes, and views; songs have no comments/likes yet.
 - ✅ **Marketing:** home, guide pages (How It Works, Premier Experience, Science of Focus), pricing, UPI upgrade.
 - 🟡 **Previews only (sample data, no accounts yet):** login, register, dashboard, upload, share, invite team, edit event details.
 - 🔲 **Not started:** scheduled synced showtimes, live comments/likes, share counts, ingesting from the admin view.
@@ -34,6 +35,8 @@ mix setup                                                # deps + asset build
 HOLOGRAM_START=1 mix phx.server                          # localhost:4000 (pages 404 without HOLOGRAM_START)
 mix face_detection.setup                                 # one-time: face models + ffmpeg
 mix face_detection.ingest PATH --title "Reception"       # add a film
+mix library.import PATH --kind series|movie|song         # add to the Library (file or folder)
+mix library.detect_faces                                 # face detection for Library videos (2s sampling, ~0.15x real time)
 mix precommit                                            # warnings-as-errors, format, test
 ```
 

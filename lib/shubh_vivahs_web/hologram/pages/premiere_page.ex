@@ -3,10 +3,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierePage do
 
   alias Hologram.UI.Link
   alias ShubhVivahs.FaceDetection
+  alias ShubhVivahs.Photos
   alias ShubhVivahsWeb.Hologram.Pages.AdminMoviePage
+  alias ShubhVivahsWeb.Hologram.Pages.AlbumPage
   alias ShubhVivahsWeb.Hologram.Pages.PlayerPage
 
-  route "/premiere"
+  # The wedding gallery (main). Was /premiere, which now redirects here
+  # (LegacyGalleryPage).
+  route "/gallery"
 
   layout ShubhVivahsWeb.Hologram.Layouts.DefaultLayout
 
@@ -16,6 +20,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierePage do
     component =
       component
       |> put_state(:logged_in?, !!server.user_id)
+      |> put_state(:albums, list_albums(server))
       |> put_filtered_movies(list_movies(server), :all)
 
     {component, server}
@@ -100,9 +105,29 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierePage do
     |> Enum.map(&build_card/1)
   end
 
+  defp list_albums(server) do
+    server.user_id
+    |> Photos.list_albums()
+    |> Enum.map(fn album ->
+      cover = Photos.cover_photo(album)
+
+      %{
+        id: album.id,
+        title: album.title,
+        slug: album.slug,
+        uploader_slug: ShubhVivahs.MovieSlug.uploader_slug_for(album.user_id),
+        count: Photos.photo_count(album),
+        cover_url: cover && Photos.thumb_url(cover),
+        public: album.public
+      }
+    end)
+  end
+
   defp build_card(movie) do
     %{
       id: movie.id,
+      slug: ShubhVivahs.MovieSlug.ensure(movie).slug,
+      uploader_slug: ShubhVivahs.MovieSlug.uploader_slug(movie),
       title: movie.title || movie.path,
       status: movie.status,
       public: movie.public,
@@ -220,14 +245,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierePage do
                     "card card-stock shadow-xl hover:shadow-2xl transition overflow-hidden"
                   end
                 }>
-                  <Link to={PlayerPage, id: movie.id}>
+                  <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug}>
                     <figure class="aspect-video bg-base-300">
                       <img src={movie.thumbnail_url} alt={movie.title} class="w-full h-full object-cover" />
                     </figure>
                   </Link>
                   <div class="card-body items-center text-center">
                     <h2 class="card-title font-display">
-                      <Link to={PlayerPage, id: movie.id} class="hover:underline">{movie.title}</Link>
+                      <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug} class="hover:underline">{movie.title}</Link>
                     </h2>
                     {%if movie.description}
                       <p class={
@@ -259,16 +284,46 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierePage do
                       </button>
                     {/if}
                     <div class="flex flex-wrap justify-center gap-2 mt-2">
-                      <Link to={PlayerPage, id: movie.id} class="btn btn-sm btn-primary">
+                      <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug} class="btn btn-sm btn-primary">
                         View Video ▶
                       </Link>
-                      <Link to={AdminMoviePage, id: movie.id} class="btn btn-sm btn-secondary">
+                      <Link to={AdminMoviePage, uploader: movie.uploader_slug, name: movie.slug} class="btn btn-sm btn-secondary">
                         Admin View ⚙
                       </Link>
                     </div>
                   </div>
                 </div>
               {/for}
+            </div>
+          {/if}
+
+          {%if @albums != []}
+            <div id="photo-albums" class="mt-10">
+              <h2 class="font-display text-xl sm:text-2xl text-center">Photo Albums</h2>
+              <div class="gold-divider w-24 mx-auto mt-1 mb-6"></div>
+              <div class="grid grid-cols-1 min-[480px]:grid-cols-2 gap-4">
+                {%for album <- @albums}
+                  <Link to={AlbumPage, uploader: album.uploader_slug, album: album.slug} class="card card-stock shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition overflow-hidden group">
+                    <figure class="aspect-[4/3] bg-base-300 overflow-hidden">
+                      {%if album.cover_url}
+                        <img src={album.cover_url} alt={album.title} loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                      {/if}
+                    </figure>
+                    <div class="card-body items-center text-center p-4">
+                      <h3 class="font-display text-lg break-words">{album.title}</h3>
+                      <div class="flex flex-wrap justify-center gap-2">
+                        <span class="badge badge-outline badge-primary">{album.count} photos</span>
+                        {%if @logged_in?}
+                          <span class={if(album.public, do: "badge badge-success badge-sm gap-1", else: "badge badge-ghost badge-sm gap-1")}>
+                            <span class={if(album.public, do: "hero-eye w-3 h-3", else: "hero-eye-slash w-3 h-3")}></span>
+                            {if(album.public, do: "Public", else: "Private")}
+                          </span>
+                        {/if}
+                      </div>
+                    </div>
+                  </Link>
+                {/for}
+              </div>
             </div>
           {/if}
         </div>

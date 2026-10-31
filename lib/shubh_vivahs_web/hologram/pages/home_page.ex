@@ -174,6 +174,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HomePage do
   defp build_card(movie) do
     %{
       id: movie.id,
+      slug: ShubhVivahs.MovieSlug.ensure(movie).slug,
+      uploader_slug: ShubhVivahs.MovieSlug.uploader_slug(movie),
       title: movie.title || movie.path,
       status: movie.status,
       description: movie.description,
@@ -249,14 +251,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HomePage do
                     "card card-stock shadow-xl hover:shadow-2xl transition overflow-hidden"
                   end
                 }>
-                  <Link to={PlayerPage, id: movie.id}>
+                  <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug}>
                     <figure class="aspect-video bg-base-300">
                       <img src={movie.thumbnail_url} alt={movie.title} class="w-full h-full object-cover" />
                     </figure>
                   </Link>
                   <div class="card-body items-center text-center">
                     <h2 class="card-title font-display">
-                      <Link to={PlayerPage, id: movie.id} class="hover:underline">{movie.title}</Link>
+                      <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug} class="hover:underline">{movie.title}</Link>
                     </h2>
                     {%if movie.description}
                       <p class={
@@ -277,10 +279,10 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HomePage do
                       }>{movie.event_line}</p>
                     {/if}
                     <div class="flex flex-wrap justify-center gap-2 mt-2">
-                      <Link to={PlayerPage, id: movie.id} class="btn btn-sm btn-primary">
+                      <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug} class="btn btn-sm btn-primary">
                         View Video ▶
                       </Link>
-                      <Link to={AdminMoviePage, id: movie.id} class="btn btn-sm btn-secondary">
+                      <Link to={AdminMoviePage, uploader: movie.uploader_slug, name: movie.slug} class="btn btn-sm btn-secondary">
                         Admin View ⚙
                       </Link>
                     </div>

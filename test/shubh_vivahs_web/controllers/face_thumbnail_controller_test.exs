@@ -28,4 +28,39 @@ defmodule ShubhVivahsWeb.FaceThumbnailControllerTest do
     |> Plug.Test.init_test_session(%{})
     |> put_session(:hologram_user_id, user.id)
   end
+
+  test "GET /premiere/faces/:id/thumbnail.jpg follows the movie's visibility", %{conn: conn} do
+    private =
+      ShubhVivahs.Repo.insert!(%ShubhVivahs.FaceDetection.Movie{path: "/x/p.mp4", public: false})
+
+    face =
+      ShubhVivahs.Repo.insert!(%ShubhVivahs.FaceDetection.Face{
+        movie_id: private.id,
+        embedding: [0.1, 0.2]
+      })
+
+    assert get(conn, ~p"/premiere/faces/#{face.id}/thumbnail.jpg").status == 404
+    assert get(conn, ~p"/premiere/faces/999999/thumbnail.jpg").status == 404
+  end
+
+  test "old admin URL shapes redirect for superusers", %{conn: conn} do
+    movie =
+      ShubhVivahs.Repo.insert!(%ShubhVivahs.FaceDetection.Movie{
+        path: "/x/r.mp4",
+        title: "Reception",
+        slug: "reception"
+      })
+
+    conn = log_in_superuser(conn)
+
+    assert redirected_to(get(conn, "/admin/movies/#{movie.id}")) == "/admin/shubhvivahs/reception"
+    assert redirected_to(get(conn, "/admin/movies/999999")) == "/admin"
+
+    assert redirected_to(get(conn, "/admin/analytics/export.csv?days=7")) ==
+             "/admin/analytics.csv?days=7"
+  end
+
+  test "old admin URL shapes stay superuser-only", %{conn: conn} do
+    assert get(conn, "/admin/movies/1").status == 403
+  end
 end

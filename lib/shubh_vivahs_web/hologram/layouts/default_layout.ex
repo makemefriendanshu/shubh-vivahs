@@ -9,6 +9,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
   alias ShubhVivahsWeb.Hologram.Pages.DashboardPage
   alias ShubhVivahsWeb.Hologram.Pages.UploadPage
   alias ShubhVivahsWeb.Hologram.Pages.HowItWorksPage
+  alias ShubhVivahsWeb.Hologram.Pages.LibraryPage
   alias ShubhVivahsWeb.Hologram.Pages.LoginPage
   alias ShubhVivahsWeb.Hologram.Pages.PlayerPage
   alias ShubhVivahsWeb.Hologram.Pages.PremierExperiencePage
@@ -52,6 +53,8 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
         Enum.map(movies, fn movie ->
           %{
             id: movie.id,
+            slug: ShubhVivahs.MovieSlug.ensure(movie).slug,
+            uploader_slug: ShubhVivahs.MovieSlug.uploader_slug(movie),
             title: movie.title || movie.path,
             thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg"
           }
@@ -76,6 +79,23 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
     <html lang="en">
       <head>
         <meta charset="utf-8" />
+        <script>
+          {%raw}
+          (function () {
+            // On first load Hologram calls history.replaceState with only
+            // location.pathname, dropping any query string (for example the
+            // ?person= filter on a photo album), so a reload or a copied link
+            // loses it. Keep the current query and hash when that happens.
+            var replaceState = history.replaceState;
+            history.replaceState = function (state, title, url) {
+              if (url === window.location.pathname && (window.location.search || window.location.hash)) {
+                url = url + window.location.search + window.location.hash;
+              }
+              return replaceState.call(this, state, title, url);
+            };
+          })();
+          {/raw}
+        </script>
         <script>
           {%raw}
           (function () {
@@ -123,6 +143,28 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
                 document.activeElement && document.activeElement.blur();
               }
             });
+
+            // Collapsing an accordion whose header was stuck to the top (a
+            // <details> with a `sticky` <summary>, e.g. /library, admin scene
+            // browser) removes the content you'd scrolled into but keeps the
+            // scroll position, leaving the header far above the screen. Bring
+            // it back to where it was pinned — its own `top`, i.e. just under
+            // any parent header still stuck — and focus it. `toggle` doesn't
+            // bubble, hence the capture-phase listener on document.
+            document.addEventListener('toggle', function (e) {
+              var details = e.target;
+              if (!(details instanceof HTMLDetailsElement) || details.open) { return; }
+              var summary = details.querySelector(':scope > summary');
+              if (!summary) { return; }
+              var style = getComputedStyle(summary);
+              if (style.position !== 'sticky') { return; }
+              var pinnedAt = parseFloat(style.top) || 0;
+              var top = details.getBoundingClientRect().top;
+              if (top < pinnedAt - 1 || top > window.innerHeight) {
+                window.scrollTo({ top: window.scrollY + top - pinnedAt, behavior: 'instant' });
+              }
+              summary.focus({ preventScroll: true });
+            }, true);
           })();
           {/raw}
         </script>
@@ -173,13 +215,13 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
         <script>
           {%raw}
           (function () {
-            // Shows a full-page spinner once loading is taking a moment
-            // (revealed after a short delay so a fast load never flashes
-            // it), hidden once the page has fully loaded. Built and torn
-            // down entirely in JS, outside <body> — the rest of the page
-            // is a Hologram-managed component tree that gets wholly
-            // replaced once the client runtime mounts, which would wipe
-            // out any classes/state applied to a template-declared node.
+            // Full-page spinner while a page loads — on a full page load and
+            // on in-app navigation (Hologram <Link>s, which fetch the next
+            // page without reloading). Revealed only after a short delay so a
+            // fast load never flashes it. Built in JS on <html>, outside
+            // <body>: the page itself is a Hologram-managed tree that gets
+            // replaced on mount/navigation, which would wipe a node declared
+            // in the template.
             var el = document.createElement('div');
             el.id = 'hologram-loading';
             el.className = 'hologram-loading';
@@ -190,22 +232,69 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
               '<div class="hologram-loading-spinner"></div>';
             document.documentElement.appendChild(el);
 
-            var revealTimer = setTimeout(function () {
-              el.classList.add('is-visible');
-            }, 250);
+            var revealTimer = null;
+            var failsafeTimer = null;
+
+            function show(delay) {
+              // Hologram drops nodes it did not render when it mounts or
+              // patches the document, this one included, so re-attach it.
+              if (!el.isConnected) document.documentElement.appendChild(el);
+              clearTimeout(revealTimer);
+              el.classList.remove('is-hidden');
+              revealTimer = setTimeout(function () { el.classList.add('is-visible'); }, delay);
+              // Never leave it up if a navigation fails or is abandoned. Long,
+              // because over the slow tunnel the next page and its script can
+              // take well over 15s to arrive.
+              clearTimeout(failsafeTimer);
+              failsafeTimer = setTimeout(hide, 45000);
+            }
 
             function hide() {
               clearTimeout(revealTimer);
+              clearTimeout(failsafeTimer);
               el.classList.remove('is-visible');
               el.classList.add('is-hidden');
-              setTimeout(function () { el.remove(); }, 250);
             }
 
-            if (document.readyState === 'complete') {
-              hide();
+            // Full page load: hidden once the HTML is parsed and styled
+            // (DOMContentLoaded), not after every image has downloaded —
+            // image-heavy pages (face grids) are usable long before that.
+            show(250);
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', hide);
             } else {
-              window.addEventListener('load', hide);
+              hide();
             }
+            window.addEventListener('pageshow', hide);
+
+            // In-app navigation: shown on a click that leaves for another
+            // page of this site, hidden once Hologram swaps the new page in
+            // (it pushes the new URL right after patching) or on back/forward.
+            // Plain prefixes, not a regex: Hologram strips backslashes from
+            // template script text, which would break any escaped pattern.
+            var filePrefixes = ['/premiere/videos/', '/premiere/faces/', '/library/media/', '/admin/faces/', '/admin/analytics.csv'];
+            function isFileUrl(path) {
+              for (var i = 0; i < filePrefixes.length; i++) {
+                if (path.indexOf(filePrefixes[i]) === 0) { return true; }
+              }
+              return false;
+            }
+            document.addEventListener('click', function (e) {
+              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { return; }
+              var a = e.target.closest && e.target.closest('a[href]');
+              if (!a || a.hasAttribute('download') || (a.target && a.target !== '_self')) { return; }
+              var url = new URL(a.href, location.href);
+              if (url.origin !== location.origin || isFileUrl(url.pathname)) { return; }
+              if (url.pathname === location.pathname && url.search === location.search) { return; }
+              show(150);
+            }, true);
+            var pushState = history.pushState;
+            history.pushState = function () {
+              var result = pushState.apply(this, arguments);
+              hide();
+              return result;
+            };
+            window.addEventListener('popstate', hide);
           })();
           {/raw}
         </script>
@@ -243,9 +332,9 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
       <body class="wedding-bg min-h-screen flex flex-col">
         <div class="bg-base-100 border-b-[6px] border-double border-primary px-4 sm:px-6 py-4 text-center overflow-x-hidden">
           <a href="/" class="inline-flex flex-nowrap items-center justify-center gap-1 sm:gap-4">
-            <img src="/images/brass-lamp.png" class="hidden sm:block sm:h-28 w-auto shrink-0" alt="" aria-hidden="true" />
+            <img src="/images/brass-lamp.png" class="block h-12 min-[380px]:h-16 sm:h-28 w-auto shrink-0" alt="" aria-hidden="true" />
             <img src="/images/home-logo.webp" class="h-20 sm:h-36 w-auto shrink-0" alt="ShubhVivahs.com" />
-            <img src="/images/brass-lamp.png" class="hidden sm:block sm:h-28 w-auto shrink-0 scale-x-[-1]" alt="" aria-hidden="true" />
+            <img src="/images/brass-lamp.png" class="block h-12 min-[380px]:h-16 sm:h-28 w-auto shrink-0 scale-x-[-1]" alt="" aria-hidden="true" />
           </a>
           <p class="font-display text-[0.6rem] sm:text-xs tracking-[0.3em] uppercase text-primary font-semibold mt-1">
             Your Digital Wedding Memory Platform
@@ -304,14 +393,14 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
             <a href="/#celebrations" class="hover:underline shrink-0">View Core Example</a>
             <span class="opacity-50 shrink-0">|</span>
             <div class="dropdown dropdown-hover shrink-0">
-              <a href="/premiere" class="hover:underline cursor-pointer">Feature Walkthrough ▾</a>
+              <a href="/gallery" class="hover:underline cursor-pointer">Feature Walkthrough ▾</a>
               <ul
                 tabindex="0"
                 class="dropdown-content menu menu-sm bg-gradient-to-b from-primary to-primary/90 text-primary-content rounded-box z-20 mt-1 w-64 max-h-80 overflow-y-auto p-2 shadow normal-case tracking-normal text-left"
               >
                 <li>
                   <a
-                    href="/premiere"
+                    href="/gallery"
                     class="font-display border-b border-primary-content/30 mb-1 hover:bg-secondary hover:text-primary-content"
                   >
                     All films
@@ -320,7 +409,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
                 {%for movie <- @nav_movies}
                   <li>
                     <Link
-                      to={PlayerPage, id: movie.id}
+                      to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug}
                       class="flex items-center gap-2 hover:bg-secondary hover:text-primary-content"
                     >
                       <img src={movie.thumbnail_url} class="w-10 h-7 object-cover rounded shrink-0" />
@@ -350,7 +439,7 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
                 {%for movie <- @nav_movies}
                   <li>
                     <Link
-                      to={AdminMoviePage, id: movie.id}
+                      to={AdminMoviePage, uploader: movie.uploader_slug, name: movie.slug}
                       class="flex items-center gap-2 hover:bg-secondary hover:text-primary-content"
                     >
                       <img src={movie.thumbnail_url} class="w-10 h-7 object-cover rounded shrink-0" />
@@ -368,6 +457,8 @@ defmodule ShubhVivahsWeb.Hologram.Layouts.DefaultLayout do
             <Link to={DashboardPage} class="hover:underline shrink-0">Dashboard</Link>
             <span class="opacity-50 shrink-0">|</span>
             <Link to={UploadPage} class="hover:underline shrink-0">Manage Videos</Link>
+            <span class="opacity-50 shrink-0">|</span>
+            <Link to={LibraryPage} class="hover:underline shrink-0">Library</Link>
             <span class="opacity-50 shrink-0">|</span>
             <Link to={AdminAnalyticsPage} class="hover:underline shrink-0">Admin Analytics</Link>
             <span class="opacity-50 shrink-0">|</span>

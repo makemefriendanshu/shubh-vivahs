@@ -2,9 +2,12 @@ defmodule ShubhVivahsWeb.VideoController do
   use ShubhVivahsWeb, :controller
 
   alias ShubhVivahs.FaceDetection.Movie
+  alias ShubhVivahs.FocusScenes
   alias ShubhVivahs.Repo
   alias ShubhVivahs.VideoPreview
   alias ShubhVivahs.VideoSegments
+  alias ShubhVivahsWeb.FileStreaming
+  alias ShubhVivahsWeb.MovieAccess
 
   @content_types %{
     ".mp4" => "video/mp4",
@@ -16,7 +19,8 @@ defmodule ShubhVivahsWeb.VideoController do
 
   def show(conn, %{"id" => id} = params) do
     with %Movie{} = movie <- Repo.get(Movie, id),
-         path <- VideoPreview.resolve_quality(movie, params["quality"]),
+         true <- MovieAccess.viewable?(conn, movie),
+         path <- stream_path(movie, params),
          true <- File.regular?(path) do
       stream_video(conn, path)
     else
@@ -24,8 +28,39 @@ defmodule ShubhVivahsWeb.VideoController do
     end
   end
 
+  @doc """
+  The movie's "Who's in focus?" scenes as JSON, fetched once by the
+  player's inline script (see `ShubhVivahs.FocusScenes`).
+  """
+  def scenes(conn, %{"id" => id}) do
+    with %Movie{} = movie <- Repo.get(Movie, id),
+         true <- MovieAccess.viewable?(conn, movie) do
+      conn
+      |> put_resp_header("cache-control", "private, no-cache")
+      |> json(FocusScenes.scenes(movie, nil))
+    else
+      _ -> send_resp(conn, 404, "Not found")
+    end
+  end
+
+  # ?lang=<code> picks one of a library item's extra audio-language copies
+  # (always original quality; see Library.audio_versions/1), otherwise the
+  # usual ?quality= tiers of the main file.
+  defp stream_path(movie, %{"lang" => lang} = params) when is_binary(lang) and lang != "" do
+    with %ShubhVivahs.Library.MediaItem{} = item <- ShubhVivahs.Library.get_by_movie_id(movie.id),
+         %{path: path} <-
+           Enum.find(ShubhVivahs.Library.audio_versions(item), &(&1.language == lang)) do
+      path
+    else
+      _ -> VideoPreview.resolve_quality(movie, params["quality"])
+    end
+  end
+
+  defp stream_path(movie, params), do: VideoPreview.resolve_quality(movie, params["quality"])
+
   def download(conn, %{"id" => id} = params) do
     with %Movie{} = movie <- Repo.get(Movie, id),
+         true <- MovieAccess.viewable?(conn, movie),
          path <- VideoPreview.resolve_quality(movie, params["quality"]),
          true <- File.regular?(path) do
       conn
@@ -38,6 +73,7 @@ defmodule ShubhVivahsWeb.VideoController do
 
   def download_chunk(conn, %{"id" => id, "part" => part_str} = params) do
     with %Movie{} = movie <- Repo.get(Movie, id),
+         true <- MovieAccess.viewable?(conn, movie),
          {part, ""} <- Integer.parse(part_str),
          quality <- VideoPreview.normalize_quality(movie, params["quality"]),
          segments <- VideoSegments.ensure_generated!(movie, quality),
@@ -55,6 +91,7 @@ defmodule ShubhVivahsWeb.VideoController do
 
   def play_chunk(conn, %{"id" => id, "part" => part_str} = params) do
     with %Movie{} = movie <- Repo.get(Movie, id),
+         true <- MovieAccess.viewable?(conn, movie),
          {part, ""} <- Integer.parse(part_str),
          quality <- VideoPreview.normalize_quality(movie, params["quality"]),
          segments <- VideoSegments.ensure_generated!(movie, quality),
@@ -92,38 +129,6 @@ defmodule ShubhVivahsWeb.VideoController do
   end
 
   defp stream_video(conn, path) do
-    %{size: size} = File.stat!(path)
-
-    conn =
-      conn
-      |> put_resp_header("accept-ranges", "bytes")
-      |> put_resp_content_type(content_type_for(path), nil)
-
-    case get_req_header(conn, "range") do
-      ["bytes=" <> range] -> send_range(conn, path, size, range)
-      _ -> send_file(conn, 200, path)
-    end
-  end
-
-  defp send_range(conn, path, size, range) do
-    {range_start, range_end} = parse_range(range, size)
-    length = range_end - range_start + 1
-
-    conn
-    |> put_resp_header("content-range", "bytes #{range_start}-#{range_end}/#{size}")
-    |> send_file(206, path, range_start, length)
-  end
-
-  defp parse_range(range, size) do
-    case String.split(range, "-") do
-      [start_str, ""] ->
-        {String.to_integer(start_str), size - 1}
-
-      [start_str, end_str] ->
-        {String.to_integer(start_str), min(String.to_integer(end_str), size - 1)}
-
-      _ ->
-        {0, size - 1}
-    end
+    FileStreaming.send_ranged(conn, path, content_type_for(path))
   end
 end

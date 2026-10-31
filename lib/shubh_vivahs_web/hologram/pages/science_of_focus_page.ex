@@ -85,7 +85,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
             movie_id: movie.id,
             movie_title: movie.title || movie.path,
             votes: votes,
-            thumbnail_url: "/admin/faces/#{face_id}/thumbnail"
+            thumbnail_url: "/premiere/faces/#{face_id}/thumbnail.jpg"
           }
 
         _ ->
@@ -178,7 +178,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
               label: Map.get(face_labels, face_id) || "Face ##{face_id}",
               votes: length(face_votes),
               mine?: MapSet.member?(my_voted_faces, face_id),
-              thumbnail_url: "/admin/faces/#{face_id}/thumbnail"
+              thumbnail_url: "/premiere/faces/#{face_id}/thumbnail.jpg"
             }
           end)
           |> mark_leading()
@@ -435,7 +435,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
 
   def template do
     ~HOLO"""
-    <div class="min-h-screen p-6">
+    <div class="min-h-screen p-4 sm:p-6">
       <script>
         {%raw}
         // Same hover-to-pause/resume behavior as the player page focus
@@ -506,13 +506,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
 
         <div class="flex flex-col gap-5">
           <div class="card card-stock shadow-xl">
-            <div class="card-body">
-              <div class="flex items-start gap-4">
+            <div class="card-body p-4 sm:p-8">
+              <div class="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                 <div class="w-12 h-12 shrink-0 rounded-box bg-primary/10 border-2 border-primary/40 flex items-center justify-center">
                   <span class="hero-eye w-6 h-6 text-primary"></span>
                 </div>
-                <div>
-                  <h2 class="font-display text-base uppercase tracking-wide">The Scientific Importance Of Focus</h2>
+                <div class="min-w-0 flex-1">
+                  <h2 class="font-display text-base uppercase tracking-wide break-words">The Scientific Importance Of Focus</h2>
                   <p class="text-sm text-base-content/70 mt-2">
                     Scientific research in visual neuroscience proves that human visual processing is highly selective. We naturally foveate — direct our most sensitive part of the retina, the fovea — towards elements that are visually salient, emotionally resonant, or narratively important.
                   </p>
@@ -536,13 +536,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
           </div>
 
           <div class="card card-stock shadow-xl">
-            <div class="card-body">
-              <div class="flex items-start gap-4">
+            <div class="card-body p-4 sm:p-8">
+              <div class="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                 <div class="w-12 h-12 shrink-0 rounded-box bg-primary/10 border-2 border-primary/40 flex items-center justify-center">
                   <span class="hero-cog-6-tooth w-6 h-6 text-primary"></span>
                 </div>
-                <div>
-                  <h2 class="font-display text-base uppercase tracking-wide">The Focus Engine: How We Get You There</h2>
+                <div class="min-w-0 flex-1">
+                  <h2 class="font-display text-base uppercase tracking-wide break-words">The Focus Engine: How We Get You There</h2>
                   <p class="text-sm text-base-content/70 mt-2">
                     Every uploaded film runs through face detection frame by frame, then those detections are clustered into the same handful of unique people who recur throughout it. From there we build a scene timeline — segments where the same set of faces is on screen together. That's as far as the AI goes on its own: it can tell you who's in a scene, but not who the scene is really about. That judgment call is left to real viewers.
                   </p>
@@ -565,13 +565,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
           </div>
 
           <div class="card card-stock shadow-xl">
-            <div class="card-body">
-              <div class="flex items-start gap-4">
+            <div class="card-body p-4 sm:p-8">
+              <div class="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                 <div class="w-12 h-12 shrink-0 rounded-box bg-primary/10 border-2 border-primary/40 flex items-center justify-center">
                   <span class="hero-hand-raised w-6 h-6 text-primary"></span>
                 </div>
-                <div>
-                  <h2 class="font-display text-base uppercase tracking-wide">Your Vote: The Real Signal Powering The Engine</h2>
+                <div class="min-w-0 flex-1">
+                  <h2 class="font-display text-base uppercase tracking-wide break-words">Your Vote: The Real Signal Powering The Engine</h2>
                   <p class="text-sm text-base-content/70 mt-2">
                     Votes aren't a gimmick — they're the actual ground truth. Anyone watching a scene can vote for whoever they think is its focus, for as many people in that scene as they like, and change their mind by voting again. Once a scene has any votes at all, the face with the most is marked "Leading" — no hidden weighting, no black-box scoring, just what real viewers chose.
                   </p>
@@ -592,13 +592,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
           </div>
 
           <div class="card card-stock shadow-xl">
-            <div class="card-body">
-              <div class="flex items-start gap-4">
+            <div class="card-body p-4 sm:p-8">
+              <div class="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                 <div class="w-12 h-12 shrink-0 rounded-box bg-primary/10 border-2 border-primary/40 flex items-center justify-center">
                   <span class="hero-scale w-6 h-6 text-primary"></span>
                 </div>
-                <div>
-                  <h2 class="font-display text-base uppercase tracking-wide">Results: Bridging AI And Human Insight</h2>
+                <div class="min-w-0 flex-1">
+                  <h2 class="font-display text-base uppercase tracking-wide break-words">Results: Bridging AI And Human Insight</h2>
                   <p class="text-sm text-base-content/70 mt-2">
                     The AI's detection and clustering do the tedious work of knowing who's on screen and when. The community's votes do the part no algorithm can fake: deciding who a moment belongs to. Together they turn hours of raw footage into a film that's genuinely organised around its own best moments — for viewers browsing the Premiere Hall, and for anyone curating a film from Admin View.
                   </p>
@@ -620,18 +620,18 @@ defmodule ShubhVivahsWeb.Hologram.Pages.ScienceOfFocusPage do
         </div>
 
         <div class="mt-8 card card-stock shadow-xl">
-          <div class="card-body">
+          <div class="card-body p-4 sm:p-8">
             <h2 class="font-display text-lg text-center">The Focus Engine, Step By Step</h2>
             <div class="gold-divider w-16 mx-auto mb-6 mt-1"></div>
 
-            <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-1 sm:gap-3 max-w-xs sm:max-w-none mx-auto w-full">
               {%for {step, index} <- Enum.with_index(@engine_steps)}
-                <div class="flex flex-col items-center gap-2 bg-secondary text-secondary-content rounded-box px-3 py-3 w-28 text-center">
-                  <span class={"#{step.icon} w-6 h-6"}></span>
-                  <span class="font-display text-[0.65rem] tracking-wide uppercase">{step.label}</span>
+                <div class="flex flex-row sm:flex-col items-center gap-2.5 sm:gap-2 bg-secondary text-secondary-content rounded-box px-3 py-2 sm:py-3 w-full sm:w-28 text-left sm:text-center shadow-sm">
+                  <span class={"#{step.icon} w-5 h-5 sm:w-6 sm:h-6 shrink-0"}></span>
+                  <span class="font-display text-[0.7rem] sm:text-[0.65rem] tracking-normal sm:tracking-wide uppercase min-w-0 break-words leading-tight">{step.label}</span>
                 </div>
                 {%if index < length(@engine_steps) - 1}
-                  <span class="text-primary text-xl shrink-0">&rarr;</span>
+                  <span class="text-primary text-lg sm:text-xl leading-none shrink-0 self-center rotate-90 sm:rotate-0" aria-hidden="true">&rarr;</span>
                 {/if}
               {/for}
             </div>

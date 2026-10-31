@@ -368,6 +368,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UploadPage do
   defp movie_view(movie) do
     %{
       id: movie.id,
+      slug: ShubhVivahs.MovieSlug.ensure(movie).slug,
+      uploader_slug: ShubhVivahs.MovieSlug.uploader_slug(movie),
       title: movie.title || movie.path,
       badge_label: status_label(movie.status),
       badge_class: status_class(movie.status),
@@ -541,9 +543,9 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UploadPage do
                 <ul class="text-sm text-base-content/70 mt-2 flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1 scroll-list">
                   {%for movie <- @movies}
                     <li class="border-b border-base-content/10 pb-2 last:border-0 last:pb-0">
-                      <div class="flex items-center gap-2">
-                        <span class={movie.badge_class}>{movie.badge_label}</span>
-                        <Link to={PlayerPage, id: movie.id} class="hover:underline flex-1 min-w-0 truncate">{movie.title}</Link>
+                      <div class="flex items-start sm:items-center gap-2">
+                        <span class={"#{movie.badge_class} shrink-0"}>{movie.badge_label}</span>
+                        <Link to={PlayerPage, uploader: movie.uploader_slug, name: movie.slug} class="hover:underline flex-1 min-w-0 line-clamp-2 sm:line-clamp-1 break-words">{movie.title}</Link>
                       </div>
                       <div class="flex items-center gap-2 mt-1">
                         <button

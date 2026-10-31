@@ -40,10 +40,22 @@ defmodule ShubhVivahsWeb.Router do
   scope "/", ShubhVivahsWeb do
     pipe_through :browser
 
-    get "/premiere/videos/:id", VideoController, :show
+    # 4 segments, not /premiere/videos/:id: PlayerPage's
+    # /premiere/:uploader/:name route (Hologram runs before this router)
+    # would otherwise swallow every stream request.
+    get "/premiere/videos/:id/stream", VideoController, :show
     get "/premiere/videos/:id/thumbnail", MovieThumbnailController, :show
     # Same thumbnail; the .jpg extension is what makes Cloudflare cache it.
     get "/premiere/videos/:id/thumbnail.jpg", MovieThumbnailController, :show
+    get "/premiere/videos/:id/scenes.json", VideoController, :scenes
+    get "/premiere/faces/:id/thumbnail.jpg", FaceThumbnailController, :public_show
+    # Photo album files (see PhotoFileController); /photos/… so no
+    # Hologram route can capture them.
+    get "/photos/faces/:id/portrait.jpg", PhotoFileController, :face
+    get "/photos/albums/:id/page.json", PhotoFileController, :page
+    get "/photos/:id/thumb.jpg", PhotoFileController, :thumb
+    get "/photos/:id/web.jpg", PhotoFileController, :web
+    get "/photos/:id/original.jpg", PhotoFileController, :original
     get "/premiere/videos/:id/download", VideoController, :download
     get "/premiere/videos/:id/download/:part", VideoController, :download_chunk
     get "/premiere/videos/:id/play/:part", VideoController, :play_chunk
@@ -54,7 +66,24 @@ defmodule ShubhVivahsWeb.Router do
     pipe_through [:browser, :require_superuser]
 
     get "/admin/faces/:id/thumbnail", FaceThumbnailController, :show
-    get "/admin/analytics/export.csv", AdminAnalyticsCsvController, :export
+    # Not /admin/analytics/export.csv: that's the same shape as
+    # AdminMoviePage's /admin/:uploader/:name, and Hologram's routes run
+    # first (the old URL redirects here — see PlayerUrlRedirect).
+    get "/admin/analytics.csv", AdminAnalyticsCsvController, :export
+    # Old URL shapes — see LegacyAdminRedirectController.
+    get "/admin/analytics/export.csv", LegacyAdminRedirectController, :analytics_csv
+    get "/admin/movies/:id", LegacyAdminRedirectController, :admin_movie
+  end
+
+  scope "/", ShubhVivahsWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    # /file (4 segments): /library/media/<id> has the same shape as
+    # LibraryVideoPage's /library/:uploader/:name, which Hologram matches
+    # first (the old URL redirects here — see PlayerUrlRedirect).
+    get "/library/media/:id/file", LibraryMediaController, :show
+    get "/library/media/:id/subtitles.vtt", LibraryMediaController, :subtitles
+    get "/library/media/:id/thumbnail.jpg", LibraryMediaController, :thumbnail
   end
 
   scope "/", ShubhVivahsWeb do

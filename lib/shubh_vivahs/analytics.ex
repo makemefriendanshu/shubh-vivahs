@@ -251,8 +251,8 @@ defmodule ShubhVivahs.Analytics do
       |> URI.encode_query()
 
     if query == "",
-      do: "/admin/analytics/export.csv",
-      else: "/admin/analytics/export.csv?" <> query
+      do: "/admin/analytics.csv",
+      else: "/admin/analytics.csv?" <> query
   end
 
   defp range_label(filters) do

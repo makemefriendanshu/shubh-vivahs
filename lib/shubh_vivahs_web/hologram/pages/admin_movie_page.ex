@@ -9,25 +9,36 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
   use Hologram.JS
 
   alias Hologram.UI.Link
+  alias ShubhVivahs.Accounts
   alias ShubhVivahs.FaceDetection
   alias ShubhVivahs.FaceDetection.{Movie, SceneIndex}
+  alias ShubhVivahs.MovieJobRunner
+  alias ShubhVivahs.MovieJobs
+  alias ShubhVivahs.QualityVersions
   alias ShubhVivahs.FocusPoll
   alias ShubhVivahs.Repo
+  alias ShubhVivahs.VideoMetadata
+  alias ShubhVivahs.VideoPreview
+  alias ShubhVivahs.VideoSegments
   alias ShubhVivahsWeb.Hologram.Middleware.RequireSuperuser
   alias ShubhVivahsWeb.Hologram.Pages.AdminMoviesPage
-  alias ShubhVivahsWeb.Hologram.Pages.PlayerPage
 
-  route "/admin/movies/:id"
+  # /admin/<uploader>/<slug> — see ShubhVivahs.MovieSlug. Older
+  # /admin/movies/<id> and /admin/movies/<uploader>/<slug> links redirect
+  # here (PlayerUrlRedirect, LegacyAdminMoviePage).
+  route "/admin/:uploader/:name"
 
   middleware RequireSuperuser
-  param :id, :integer
+  middleware ShubhVivahsWeb.Hologram.Middleware.PlayerUrlRedirect, mode: :admin
+  param :uploader, :string
+  param :name, :string
 
   layout ShubhVivahsWeb.Hologram.Layouts.DefaultLayout
 
   @bucket_ms 5 * 60 * 1000
 
   def init(params, component, server) do
-    movie_record = Repo.get(Movie, params.id)
+    movie_record = ShubhVivahs.MovieSlug.get(params.name)
     preloaded = movie_record && Repo.preload(movie_record, faces: :detections)
     focus_session_id = Ecto.UUID.generate()
 
@@ -38,12 +49,31 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
 
     scenes_by_key = Map.new(scenes_list, &{scene_key(&1), &1})
 
+    # How many scenes (as listed in the Scenes section) each face is in.
+    scene_counts =
+      scenes_list
+      |> Enum.flat_map(fn scene -> Enum.map(scene.faces, & &1.id) end)
+      |> Enum.frequencies()
+
+    # Every vote, per face, as {scene start, votes}: attributed to the
+    # face's on-screen stretches in face_summary/3.
+    voted_scenes =
+      for scene <- scenes_list, face <- scene.faces, face.votes > 0, reduce: %{} do
+        acc ->
+          Map.update(
+            acc,
+            face.id,
+            [{scene.start_ms, face.votes}],
+            &[{scene.start_ms, face.votes} | &1]
+          )
+      end
+
     faces =
       if preloaded,
         do:
           preloaded.faces
-          |> Enum.map(&face_summary(&1, scenes_list))
-          |> Enum.sort_by(& &1.focus_votes, :desc),
+          |> Enum.map(&face_summary(&1, voted_scenes, scene_counts))
+          |> sort_faces(:votes),
         else: []
 
     movie = movie_record && build_movie(movie_record)
@@ -59,8 +89,16 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
       |> put_state(:focus_session_id, focus_session_id)
       |> put_state(:faces, faces)
       |> put_state(:face_count, length(faces))
+      |> put_state(:named_face_count, Enum.count(faces, &named?/1))
+      |> put_state(:face_sort_options, [
+        %{key: :votes, label: "Most voted"},
+        %{key: :appearances, label: "Most scenes"},
+        %{key: :named, label: "Named first"},
+        %{key: :unnamed, label: "Unnamed first"}
+      ])
       |> put_state(:scenes, scenes_by_key)
       |> put_state(:scene_buckets, scene_buckets(scenes_list))
+      |> put_state(:scene_count, length(scenes_list))
       |> put_state(:scene_boundaries_json, scene_boundaries_json(scenes_list))
       |> put_state(:current_preview_scene, nil)
       |> put_state(:scene_open, false)
@@ -69,10 +107,95 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
       |> put_state(:description_draft, (movie && movie.description) || "")
       |> put_state(:event_date_draft, (movie && movie.event_date_input) || "")
       |> put_state(:location_draft, (movie && movie.location) || "")
+      |> put_state(:recognition_confirm, false)
+      |> put_state(:job_message, nil)
+      |> put_state(:jobs, movie_record && jobs_view(movie_record))
+      |> put_state(:polling?, false)
+
+    # Keep the progress bars moving if a job is already running.
+    component =
+      if movie_record && any_running?(component.state.jobs),
+        do:
+          component
+          |> put_state(:polling?, true)
+          |> put_action(name: :poll_jobs, params: %{}, delay: 3000),
+        else: component
 
     server = if movie, do: put_subscription(server, {:focus_votes, movie.id}), else: server
+    # MovieJobRunner broadcasts :movies_updated when a job it ran ends.
+    server = put_subscription(server, :movies_changed)
 
     {component, server}
+  end
+
+  # "Run face recognition" / "Generate quality versions" buttons (see
+  # MovieJobRunner). Re-running recognition replaces every face, which
+  # cascades to their names and focus votes, so when there are faces it
+  # asks first (:recognition_clicked -> confirm row -> :run_recognition).
+  def action(:recognition_clicked, _params, component) do
+    if component.state.face_count > 0 do
+      put_state(component, recognition_confirm: true, job_message: nil)
+    else
+      start_job(component, "recognition")
+    end
+  end
+
+  def action(:run_recognition, _params, component), do: start_job(component, "recognition")
+
+  def action(:cancel_recognition, _params, component) do
+    put_state(component, :recognition_confirm, false)
+  end
+
+  def action(:run_versions, _params, component), do: start_job(component, "versions")
+
+  # Progress bars: jobs can run in another OS process (a `mix` task) that
+  # can't push to this page, so while anything is running the page polls
+  # every 3s. :movies_updated (a server-run job ending) refreshes once.
+  def action(:poll_jobs, _params, component) do
+    put_command(component, :refresh_jobs, movie_id: component.state.movie.id, from_poll: true)
+  end
+
+  def action(:movies_updated, _params, component) do
+    if component.state.movie do
+      put_command(component, :refresh_jobs, movie_id: component.state.movie.id, from_poll: false)
+    else
+      component
+    end
+  end
+
+  def action(:jobs_refreshed, params, component) do
+    finished_recognition? =
+      component.state.jobs.recognition.running? and not params.jobs.recognition.running? and
+        params.movie.status == "done"
+
+    if finished_recognition? do
+      # New faces and scenes: reload rather than rebuild all of init/3 here.
+      JS.exec("window.location.reload();")
+      component
+    else
+      component =
+        put_state(component,
+          movie: params.movie,
+          jobs: params.jobs,
+          job_message: Map.get(params, :message),
+          recognition_confirm: false
+        )
+
+      running? = any_running?(params.jobs)
+
+      cond do
+        running? and (params.from_poll or not component.state.polling?) ->
+          component
+          |> put_state(:polling?, true)
+          |> put_action(name: :poll_jobs, params: %{}, delay: 3000)
+
+        not running? and params.from_poll ->
+          put_state(component, :polling?, false)
+
+        true ->
+          component
+      end
+    end
   end
 
   # find_scene_at/2 below is an O(total_scenes) scan — fine server-side
@@ -325,6 +448,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
 
     component
     |> put_state(:faces, faces)
+    |> put_state(:named_face_count, Enum.count(faces, &named?/1))
     |> put_state(:label_drafts, label_drafts)
   end
 
@@ -423,8 +547,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
       end
 
     faces =
-      update_face_focus(
-        component.state.faces,
+      component.state.faces
+      |> update_face_focus(
         scenes,
         old_scene,
         params.face_id,
@@ -462,34 +586,22 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
     end)
   end
 
-  # Mirrors votes_for_face_at/3: only the range whose *determining* scene
-  # (the one find_scene_at/2 would resolve to at the range's start — same
-  # scene that opens when the range is clicked) is the scene that just
-  # changed gets the delta. focus_votes is re-summed from the (possibly
-  # unchanged) ranges rather than adjusted by the raw delta, since a vote
-  # can land on a scene that isn't any range's determining scene — the
-  # header must stay the sum of what's actually shown below it (see
-  # face_summary/2), not drift by a delta no pill reflected.
-  #
-  # This runs client-side on every vote, so unlike votes_for_face_at/3 it
-  # can't afford to call find_scene_at/2 (an O(total_scenes) scan) once per
-  # range: a face with dozens of ranges in a movie with hundreds of scenes
-  # made every click freeze the tab. Since scene start_ms values are unique
-  # and find_scene_at/2 always resolves to the last scene starting at or
-  # before a point, "range's determining scene is the changed scene" is
-  # equivalent to "range.start_ms falls in [changed_scene.start_ms, start_ms
-  # of the next scene after it)" — a boundary computed once per vote below,
-  # then checked per range in O(1).
-  defp update_face_focus(faces, scenes, changed_scene, face_id, delta) do
-    next_start = next_scene_start(scenes, changed_scene.start_ms)
-
+  # Live counterpart of face_summary/3: a vote on a scene goes to the
+  # stretch (time pill) that scene falls in (range_index_for/2), and the
+  # face total is re-summed from the pills so the two always agree. Runs
+  # client-side on every vote, so it touches one face and does one linear
+  # pass over its stretches.
+  defp update_face_focus(faces, _scenes, changed_scene, face_id, delta) do
     faces
     |> Enum.map(fn face ->
       if face.id == face_id do
+        target = range_index_for(face.scenes, changed_scene.start_ms)
+
         ranges =
-          Enum.map(face.scenes, fn range ->
-            if changed_scene.start_ms <= range.start_ms and
-                 (is_nil(next_start) or range.start_ms < next_start) do
+          face.scenes
+          |> Enum.with_index()
+          |> Enum.map(fn {range, index} ->
+            if index == target do
               votes = range.votes + delta
               %{range | votes: votes, voted: votes > 0}
             else
@@ -503,23 +615,30 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
         face
       end
     end)
-    |> Enum.sort_by(& &1.focus_votes, :desc)
   end
 
-  # Written as a plain reduce (rather than Enum.min/2 with an empty-list
-  # fallback) because Hologram's client-side Enum.min/2 doesn't support that
-  # fallback arg the way Elixir does — it crashes with
-  # "no function clause matching in :lists.min/1" instead of running it.
-  defp next_scene_start(scenes, changed_start) do
-    scenes
-    |> scene_values()
-    |> Enum.reduce(nil, fn scene, closest ->
-      cond do
-        scene.start_ms <= changed_start -> closest
-        is_nil(closest) or scene.start_ms < closest -> scene.start_ms
-        true -> closest
-      end
-    end)
+  # Index of the stretch (time pill) a scene starting at `at_ms` belongs
+  # to: the one containing it, else the nearest, since scene and stretch
+  # edges come from slightly different merging. A plain reduce so it also
+  # runs client-side in Hologram.
+  defp range_index_for(ranges, at_ms) do
+    {_distance, index} =
+      ranges
+      |> Enum.with_index()
+      |> Enum.reduce({nil, nil}, fn {range, index}, {best_distance, best_index} ->
+        distance =
+          cond do
+            at_ms < range.start_ms -> range.start_ms - at_ms
+            at_ms > range.end_ms -> at_ms - range.end_ms
+            true -> 0
+          end
+
+        if is_nil(best_distance) or distance < best_distance,
+          do: {distance, index},
+          else: {best_distance, best_index}
+      end)
+
+    index
   end
 
   # The heavy end of :show_scene (see the action above): rebuilds the same
@@ -540,6 +659,35 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
     scene = find_scene_at(scenes_list, params.start_ms)
 
     put_action(server, :scene_shown, scene: scene, src: src)
+  end
+
+  def command(:start_job, %{movie_id: movie_id, kind: kind}, server) do
+    # Defense in depth: the page is superuser-only, but commands are their
+    # own requests.
+    message =
+      if superuser?(server) do
+        case MovieJobRunner.start(movie_id, kind) do
+          :ok ->
+            nil
+
+          {:error, :already_running} ->
+            "That's already running for this video."
+
+          {:error, :busy} ->
+            "Another job is running on the server right now — try again when it's done."
+
+          {:error, :not_found} ->
+            "This video no longer exists."
+        end
+      else
+        "Only admins can run this."
+      end
+
+    refresh_jobs(server, movie_id, false, message)
+  end
+
+  def command(:refresh_jobs, %{movie_id: movie_id, from_poll: from_poll}, server) do
+    refresh_jobs(server, movie_id, from_poll, nil)
   end
 
   def command(:persist_label, params, server) do
@@ -627,8 +775,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
   # no gaps, the last one starting at or before `ms` is always the scene
   # actually playing at that instant, regardless of which grid it was
   # clicked from. Also the single source of truth for which scene "owns" a
-  # given point in time, so a badge's vote count (see votes_for_face_at/3)
-  # always agrees with the scene that opens when that badge is clicked.
+  # given point in time: clicking a time pill opens the scene playing at
+  # the start of that stretch.
   defp find_scene_at(scenes, ms) do
     scenes
     |> scene_values()
@@ -710,24 +858,41 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
   defp build_movie(movie) do
     %{
       id: movie.id,
+      slug: ShubhVivahs.MovieSlug.ensure(movie).slug,
+      uploader_slug: ShubhVivahs.MovieSlug.uploader_slug(movie),
       title: movie.title || movie.path,
       status: movie.status,
       description: movie.description,
       event_date_input: date_to_input(movie.event_date),
       location: movie.location,
-      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg"
+      thumbnail_url: "/premiere/videos/#{movie.id}/thumbnail.jpg",
+      # /gallery/… or /library/…, whichever the movie belongs to.
+      player_path: ShubhVivahs.MovieSlug.path(movie)
     }
   end
 
   defp date_to_input(nil), do: ""
   defp date_to_input(%Date{} = date), do: Date.to_iso8601(date)
 
-  defp face_summary(face, scenes_list) do
+  defp face_summary(face, voted_scenes, scene_counts) do
+    ranges = SceneIndex.ranges(face.detections)
+
+    # A face is on screen through many scenes (others come and go), so each
+    # of its stretches (a time pill) collects the votes of every scene that
+    # starts inside it. Counting only the scene that starts with the
+    # stretch, as this used to, dropped most votes from the totals.
+    votes_by_range =
+      voted_scenes
+      |> Map.get(face.id, [])
+      |> Enum.reduce(%{}, fn {start_ms, votes}, acc ->
+        Map.update(acc, range_index_for(ranges, start_ms), votes, &(&1 + votes))
+      end)
+
     scenes =
-      face.detections
-      |> SceneIndex.ranges()
-      |> Enum.map(fn range ->
-        votes = votes_for_face_at(scenes_list, face.id, range.start_ms)
+      ranges
+      |> Enum.with_index()
+      |> Enum.map(fn {range, index} ->
+        votes = Map.get(votes_by_range, index, 0)
 
         %{
           time: format_scene(range),
@@ -738,11 +903,9 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
         }
       end)
 
-    # Derived as the sum of the pills above (rather than FocusPoll's raw
-    # per-face total) so this header always agrees with what's visibly
-    # enumerated underneath it — see votes_for_face_at/3 for why a pill's
-    # count can be less than the number of votes actually cast for scenes
-    # it spans.
+    # The sum of the pills above, which together hold every vote cast for
+    # this face (each voted scene lands in exactly one stretch), so this
+    # matches FocusPoll's per-face total.
     focus_votes = scenes |> Enum.map(& &1.votes) |> Enum.sum()
 
     %{
@@ -750,27 +913,10 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
       label: face.label,
       subtitle: face.subtitle,
       scenes: scenes,
+      scene_count: Map.get(scene_counts, face.id, 0),
       focus_votes: focus_votes,
       voted: focus_votes > 0
     }
-  end
-
-  # The scenes voted on (see FocusPoll) are segmented by who's on screen
-  # *together*, while a face's own timestamp ranges (SceneIndex.ranges/1)
-  # are segmented by that face's own continuous appearances — the two
-  # rarely share exact boundaries, so a range can span more than one
-  # "who's on screen together" scene. Clicking a range always opens the
-  # vote panel for whichever of those scenes is playing at the range's
-  # *start* (see find_scene_at/2 and action(:show_scene)), so the badge
-  # shows that one scene's vote count to always agree with the panel —
-  # deliberately chosen over summing every scene the range overlaps, which
-  # matches the "N in focus" total but can show more on the badge than a
-  # click-through ever reveals.
-  defp votes_for_face_at(scenes_list, face_id, start_ms) do
-    case find_scene_at(scenes_list, start_ms) do
-      nil -> 0
-      scene -> scene.faces |> Enum.find(&(&1.id == face_id)) |> face_votes()
-    end
   end
 
   defp format_scene(%{start_ms: start_ms, end_ms: end_ms}) do
@@ -795,6 +941,158 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
   defp format_timestamp(nil), do: nil
   defp format_timestamp(%NaiveDateTime{} = dt), do: Calendar.strftime(dt, "%H:%M:%S UTC")
 
+  # Initial (server-side) order: most voted, then most scenes. The sort
+  # buttons reorder the cards in the browser instead (see the script in the
+  # template), because any Hologram action on this page is slow: its state
+  # holds every scene and face.
+  defp sort_faces(faces, :votes),
+    do: Enum.sort_by(faces, &(&1.focus_votes * 1_000_000 + &1.scene_count), :desc)
+
+  defp named?(face), do: is_binary(face.label) and face.label != ""
+
+  defp start_job(component, kind) do
+    component
+    |> put_state(recognition_confirm: false, job_message: nil)
+    |> put_command(:start_job, movie_id: component.state.movie.id, kind: kind)
+  end
+
+  defp any_running?(nil), do: false
+  defp any_running?(jobs), do: jobs.recognition.running? or jobs.versions.running?
+
+  defp refresh_jobs(server, movie_id, from_poll, message) do
+    case Repo.get(Movie, movie_id) do
+      nil ->
+        server
+
+      movie ->
+        put_action(server, :jobs_refreshed,
+          movie: build_movie(movie),
+          jobs: jobs_view(movie),
+          from_poll: from_poll,
+          message: message
+        )
+    end
+  end
+
+  # Plain maps for the two job panels. Recognition's "running" comes from
+  # the movie's own status (what every ingest path sets), its progress
+  # from MovieJobs; a run whose process died without saying so shows as
+  # stalled and can be started again.
+  defp jobs_view(movie) do
+    recognition_job = MovieJobs.get(movie.id, "recognition")
+    versions_job = MovieJobs.get(movie.id, "versions")
+
+    recognition_state =
+      cond do
+        movie.status == "processing" and MovieJobs.stalled?(recognition_job) -> :stalled
+        movie.status == "processing" -> :running
+        movie.status == "done" -> :done
+        movie.status == "failed" -> :failed
+        true -> :not_run
+      end
+
+    versions_state =
+      case versions_job do
+        nil -> :not_run
+        job -> if MovieJobs.stalled?(job), do: :stalled, else: String.to_existing_atom(job.status)
+      end
+
+    %{
+      recognition: job_panel(recognition_state, recognition_job),
+      versions:
+        job_panel(versions_state, versions_job)
+        |> Map.put(:outputs, version_outputs(movie))
+    }
+  end
+
+  defp job_panel(state, job) do
+    %{
+      running?: state == :running,
+      stalled?: state == :stalled,
+      label: job_label(state),
+      badge_class: job_badge_class(state),
+      stage: job && job.stage,
+      percent: job && state == :running && job.progress && round(job.progress * 100),
+      eta: job && state == :running && format_eta(MovieJobs.seconds_left(job)),
+      error: job && state == :failed && job.message
+    }
+  end
+
+  defp job_label(:running), do: "Running"
+  defp job_label(:stalled), do: "Stalled"
+  defp job_label(:done), do: "Done"
+  defp job_label(:failed), do: "Failed"
+  defp job_label(:not_run), do: "Not run yet"
+
+  defp job_badge_class(:running), do: "badge badge-sm badge-info"
+  defp job_badge_class(:stalled), do: "badge badge-sm badge-warning"
+  defp job_badge_class(:done), do: "badge badge-sm badge-success"
+  defp job_badge_class(:failed), do: "badge badge-sm badge-error"
+  defp job_badge_class(:not_run), do: "badge badge-sm badge-ghost"
+
+  defp format_eta(nil), do: nil
+  defp format_eta(seconds) when seconds < 60, do: "under a minute left"
+  defp format_eta(seconds) when seconds < 3600, do: "about #{div(seconds, 60)} min left"
+
+  defp format_eta(seconds),
+    do: "about #{div(seconds, 3600)} h #{div(rem(seconds, 3600), 60)} min left"
+
+  # What the player's quality picker and download menu can offer now.
+  defp version_outputs(movie) do
+    source = VideoMetadata.fetch(movie)
+
+    preview =
+      cond do
+        VideoPreview.preview_ready?(movie) -> output_detail(VideoMetadata.fetch_preview(movie))
+        QualityVersions.preview_worthwhile?(movie) -> nil
+        true -> "not needed — original is already 720p or smaller"
+      end
+
+    minimal =
+      if VideoPreview.minimal_ready?(movie), do: output_detail(VideoMetadata.fetch_minimal(movie))
+
+    parts =
+      ["source", "preview", "minimal"]
+      |> Enum.map(&length(VideoSegments.list(movie, &1)))
+      |> Enum.reject(&(&1 == 0))
+
+    [
+      %{key: "original", label: "Original", detail: output_detail(source), ready?: true},
+      %{
+        key: "preview",
+        label: "720p data saver",
+        detail: preview,
+        ready?: VideoPreview.preview_ready?(movie)
+      },
+      %{key: "minimal", label: "360p minimal", detail: minimal, ready?: minimal != nil},
+      %{
+        key: "parts",
+        label: "Download parts",
+        detail:
+          if(parts != [], do: "#{length(parts)} quality level(s), ~#{hd(parts)} parts each"),
+        ready?: parts != []
+      }
+    ]
+  end
+
+  defp output_detail(nil), do: nil
+  defp output_detail(metadata), do: VideoMetadata.describe_quality(metadata)
+
+  defp superuser?(server) do
+    case server.user_id && Accounts.get_user(server.user_id) do
+      %Accounts.User{} = user -> Accounts.superuser?(user)
+      _ -> false
+    end
+  end
+
+  # The Scenes and All recognised faces sections, and each 5-minute scene
+  # block, are <details> accordions whose headers stick while their content
+  # scrolls past (the block header sits under the Scenes header: its
+  # top-16/sm:top-14 matches the section header's h-16/sm:h-14; on phones
+  # the header stacks title over count, and "All recognised faces" is
+  # shortened to "Faces", so the title isn't cut off — the site's large
+  # root font leaves a 390px phone ~200px for it). No overflow-hidden/inner scroll boxes on
+  # them, which would stop the headers sticking.
   def template do
     ~HOLO"""
     <div class="min-h-screen p-6">
@@ -861,9 +1159,115 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
             <div>
               <h1 class="font-display text-2xl">{@movie.title}</h1>
               <p class="text-sm text-base-content/60 mb-2">{@face_count} unique face(s) recognised</p>
-              <Link to={PlayerPage, id: @movie.id} class="btn btn-primary btn-sm">
-                Watch in Premiere Hall
-              </Link>
+              <a href={@movie.player_path} class="btn btn-primary btn-sm">
+                Watch
+              </a>
+              <div class="flex flex-col gap-3 mt-3 max-w-md">
+                <div id="recognition-panel" class="p-3 rounded-box border border-primary/25">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs uppercase tracking-widest text-base-content/60">Face recognition</span>
+                    <span id="recognition-status" class={@jobs.recognition.badge_class}>{@jobs.recognition.label}</span>
+                  </div>
+                  {%if @jobs.recognition.running?}
+                    <div id="recognition-progress" class="mt-2">
+                      <div class="flex justify-between text-xs text-base-content/70 mb-1">
+                        <span>{@jobs.recognition.stage || "Starting…"}</span>
+                        {%if @jobs.recognition.percent}<span>{@jobs.recognition.percent}%</span>{/if}
+                      </div>
+                      {%if @jobs.recognition.percent}
+                        <progress class="progress progress-primary w-full transition-all" value={@jobs.recognition.percent} max="100"></progress>
+                      {%else}
+                        <progress class="progress progress-primary w-full"></progress>
+                      {/if}
+                      <p class="text-xs text-base-content/50 mt-1">
+                        {%if @jobs.recognition.eta}{@jobs.recognition.eta} · {/if}This page refreshes itself when it's done.
+                      </p>
+                    </div>
+                  {%else}
+                    {%if @jobs.recognition.stalled?}
+                      <p class="text-xs text-warning mt-2">
+                        The last run stopped reporting (its process was probably stopped or killed). You can start it again.
+                      </p>
+                    {/if}
+                    {%if @jobs.recognition.error}
+                      <p class="text-xs text-error mt-2 break-words">Last run failed: {@jobs.recognition.error}</p>
+                    {/if}
+                    {%if @recognition_confirm}
+                      <p class="text-xs text-warning mt-2">
+                        This replaces all {@face_count} recognised faces, their names, and every focus vote for this video.
+                      </p>
+                      <div class="flex gap-2 mt-2">
+                        <button id="recognition-confirm" type="button" $click="run_recognition" class="btn btn-xs btn-warning">
+                          Yes, re-run
+                        </button>
+                        <button id="recognition-cancel" type="button" $click="cancel_recognition" class="btn btn-xs btn-ghost">
+                          Cancel
+                        </button>
+                      </div>
+                    {%else}
+                      <button id="recognition-run" type="button" $click="recognition_clicked" class="btn btn-xs btn-secondary mt-2 gap-1 transition hover:-translate-y-0.5">
+                        <span class="hero-sparkles w-4 h-4"></span>
+                        {%if @movie.status == "done"}Re-run face recognition{%else}Run face recognition{/if}
+                      </button>
+                    {/if}
+                  {/if}
+                </div>
+
+                <div id="versions-panel" class="p-3 rounded-box border border-primary/25">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs uppercase tracking-widest text-base-content/60">Quality &amp; downloads</span>
+                    <span id="versions-status" class={@jobs.versions.badge_class}>{@jobs.versions.label}</span>
+                  </div>
+                  <ul id="versions-outputs" class="mt-2 flex flex-col gap-1">
+                    {%for output <- @jobs.versions.outputs}
+                      <li class="flex items-start gap-2 text-xs">
+                        {%if output.ready?}
+                          <span class="hero-check-circle w-4 h-4 text-success shrink-0"></span>
+                        {%else}
+                          <span class="hero-clock w-4 h-4 text-base-content/40 shrink-0"></span>
+                        {/if}
+                        <span>
+                          <span class="font-medium">{output.label}</span>
+                          <span class="text-base-content/60">{%if output.detail} · {output.detail}{%else} · not made yet{/if}</span>
+                        </span>
+                      </li>
+                    {/for}
+                  </ul>
+                  {%if @jobs.versions.running?}
+                    <div id="versions-progress" class="mt-2">
+                      <div class="flex justify-between text-xs text-base-content/70 mb-1">
+                        <span>{@jobs.versions.stage || "Starting…"}</span>
+                        {%if @jobs.versions.percent}<span>{@jobs.versions.percent}%</span>{/if}
+                      </div>
+                      {%if @jobs.versions.percent}
+                        <progress class="progress progress-secondary w-full transition-all" value={@jobs.versions.percent} max="100"></progress>
+                      {%else}
+                        <progress class="progress progress-secondary w-full"></progress>
+                      {/if}
+                      {%if @jobs.versions.eta}
+                        <p class="text-xs text-base-content/50 mt-1">{@jobs.versions.eta}</p>
+                      {/if}
+                    </div>
+                  {%else}
+                    {%if @jobs.versions.stalled?}
+                      <p class="text-xs text-warning mt-2">
+                        The last run stopped reporting (its process was probably stopped or killed). You can start it again.
+                      </p>
+                    {/if}
+                    {%if @jobs.versions.error}
+                      <p class="text-xs text-error mt-2 break-words">Last run failed: {@jobs.versions.error}</p>
+                    {/if}
+                    <button id="versions-run" type="button" $click="run_versions" class="btn btn-xs btn-secondary mt-2 gap-1 transition hover:-translate-y-0.5">
+                      <span class="hero-film w-4 h-4"></span>
+                      {%if @jobs.versions.label == "Done"}Regenerate quality versions{%else}Generate quality versions{/if}
+                    </button>
+                  {/if}
+                </div>
+
+                {%if @job_message}
+                  <p id="job-message" class="text-xs text-error">{@job_message}</p>
+                {/if}
+              </div>
               <details id="rename-movie-details" class="mt-2">
                 <summary class="text-xs cursor-pointer text-base-content/60">Rename movie</summary>
                 <div class="flex gap-1 mt-1">
@@ -919,12 +1323,12 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
                     Curation is running now — check back in a bit.
                   {%else}
                     {%if @movie.status == "failed"}
-                      Curation failed for this video. Try re-uploading it, or run `mix face_detection.ingest` again.
+                      Curation failed for this video. Use "Run face recognition" above to try again.
                     {%else}
                       {%if @movie.status == "done"}
                         No faces were found in this video.
                       {%else}
-                        Not curated yet. Run `mix face_detection.ingest` for this movie first.
+                        Not curated yet. Use "Run face recognition" above to scan it.
                       {/if}
                     {/if}
                   {/if}
@@ -932,20 +1336,30 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
               </div>
             </div>
           {%else}
-            <div class="flex flex-col lg:flex-row gap-8">
-              <div class="lg:w-1/2">
-                <h2 class="font-display text-xl mb-3">Scenes</h2>
-                <p class="text-sm text-base-content/60 mb-3">
-                  A new scene starts whenever who's on screen changes.
-                </p>
-                <div class="flex flex-col gap-2">
+            <div class="flex flex-col lg:flex-row lg:items-start gap-6">
+              <details id="scenes-section" open class="group/scenes lg:w-1/2 self-start w-full rounded-box border border-primary/25 card-stock">
+                <summary class="sticky top-0 z-30 h-16 sm:h-14 px-4 rounded-box group-open/scenes:rounded-b-none group-open/scenes:border-b group-open/scenes:border-primary/20 group-open/scenes:shadow-sm list-none [&::-webkit-details-marker]:hidden cursor-pointer select-none flex items-center gap-3 bg-base-100 hover:bg-base-200 transition-colors">
+                  <span class="hero-chevron-right w-5 h-5 shrink-0 text-primary transition-transform duration-200 group-open/scenes:rotate-90"></span>
+                  <span class="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-3">
+                    <h2 class="font-display text-lg sm:text-xl leading-tight">Scenes</h2>
+                    <span class="text-xs text-base-content/60 sm:shrink-0">{@scene_count} scene(s)</span>
+                  </span>
+                </summary>
+                <div class="p-3 flex flex-col gap-2">
+                  <p class="text-sm text-base-content/60 mb-1">
+                    A new scene starts whenever who's on screen changes.
+                  </p>
                   {%for bucket <- @scene_buckets}
-                    <details class="collapse collapse-arrow card-stock border border-primary/25 rounded-box">
-                      <summary class="collapse-title font-medium">
-                        {bucket.label} — {bucket.scene_count} scene(s)
+                    <details class="group/bucket rounded-box border border-primary/25 bg-base-100/40">
+                      <summary class="sticky top-16 sm:top-14 z-20 px-3 py-2.5 rounded-box group-open/bucket:rounded-b-none group-open/bucket:shadow-sm list-none [&::-webkit-details-marker]:hidden cursor-pointer select-none flex items-center gap-3 bg-base-100 hover:bg-base-200 transition-colors">
+                        <span class="hero-chevron-right w-4 h-4 shrink-0 text-primary transition-transform duration-200 group-open/bucket:rotate-90"></span>
+                        <span class="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-3">
+                          <span class="font-medium whitespace-nowrap">{bucket.label}</span>
+                          <span class="text-xs text-base-content/60 whitespace-nowrap">{bucket.scene_count} scene(s)</span>
+                        </span>
                       </summary>
-                      <div class="collapse-content max-h-96 overflow-y-auto">
-                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3">
+                      <div class="p-3">
+                        <div class="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3">
                           {%for scene <- bucket.scenes}
                             <div
                               $click={:show_scene, start_ms: scene.start_ms, end_ms: scene.end_ms, movie_id: @movie.id}
@@ -957,7 +1371,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
                                 end
                               }
                             >
-                              <div class="absolute top-2 left-2 z-10 badge badge-neutral gap-1 text-sm font-mono font-bold shadow">
+                              <div class="absolute top-2 left-2 z-10 badge badge-neutral gap-1 text-xs sm:text-sm font-mono font-bold shadow whitespace-nowrap max-w-[calc(100%-1rem)]">
                                 <span class="text-xs leading-none">▶</span> {scene.time}
                               </div>
                               <div class="absolute bottom-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition pointer-events-none">
@@ -1001,14 +1415,99 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
                     </details>
                   {/for}
                 </div>
-              </div>
+              </details>
 
-              <div class="lg:w-1/2">
-                <h2 class="font-display text-xl mb-3">All recognised faces</h2>
-                <div class="relative">
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-4 max-h-[36rem] overflow-y-auto pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <details id="faces-section" open class="group/faces lg:w-1/2 self-start w-full rounded-box border border-primary/25 card-stock">
+                <summary class="sticky top-0 z-30 h-16 sm:h-14 px-4 rounded-box group-open/faces:rounded-b-none group-open/faces:border-b group-open/faces:border-primary/20 group-open/faces:shadow-sm list-none [&::-webkit-details-marker]:hidden cursor-pointer select-none flex items-center gap-3 bg-base-100 hover:bg-base-200 transition-colors">
+                  <span class="hero-chevron-right w-5 h-5 shrink-0 text-primary transition-transform duration-200 group-open/faces:rotate-90"></span>
+                  <span class="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-3">
+                    <h2 class="font-display text-lg sm:text-xl leading-tight">
+                      <span class="sm:hidden">Faces</span><span class="hidden sm:inline">All recognised faces</span>
+                    </h2>
+                    <span class="text-xs text-base-content/60 sm:shrink-0">{@face_count}<span class="sm:hidden"> recognised</span></span>
+                  </span>
+                </summary>
+                <div class="relative p-3">
+                <div id="face-sort" class="flex flex-wrap items-center gap-1.5 mb-3">
+                  <span class="text-xs text-base-content/60 mr-1">Sort by</span>
+                  {%for option <- @face_sort_options}
+                    <button
+                      type="button"
+                      id={"face-sort-#{option.key}"}
+                      data-face-sort={option.key}
+                      class="btn btn-xs btn-ghost border border-primary/20"
+                    >
+                      {option.label}
+                    </button>
+                  {/for}
+                  <span class="text-xs text-base-content/50 ml-auto">{@named_face_count} of {@face_count} named</span>
+                </div>
+                <script>
+                  {%raw}
+                  // Face sort buttons: reorders the cards with CSS order, in the
+                  // browser, rather than through a Hologram action (slow on this
+                  // page). Reapplied whenever the cards data attributes change,
+                  // e.g. after a vote or a new label. The choice is remembered
+                  // per browser. No quote marks or backslashes in comments here:
+                  // Hologram mangles both inside template scripts.
+                  (function () {
+                    if (window.__faceSortAttached) { return; }
+                    window.__faceSortAttached = true;
+                    var STORE = "admin-face-sort";
+                    function saved() {
+                      try { return localStorage.getItem(STORE) || "votes"; } catch (e) { return "votes"; }
+                    }
+                    function num(el, name) { return parseInt(el.getAttribute(name), 10) || 0; }
+                    var keys = {
+                      votes: function (c) { return num(c, "data-votes") * 1000000 + num(c, "data-scenes"); },
+                      appearances: function (c) { return num(c, "data-scenes") * 1000000 + num(c, "data-votes"); },
+                      named: function (c) { return num(c, "data-named") * 1000000 + num(c, "data-scenes"); },
+                      unnamed: function (c) { return (1 - num(c, "data-named")) * 1000000 + num(c, "data-scenes"); }
+                    };
+                    function apply(sort) {
+                      var grid = document.getElementById("face-grid");
+                      if (!grid) { return; }
+                      var key = keys[sort] || keys.votes;
+                      Array.prototype.slice.call(grid.children)
+                        .map(function (card, i) { return [key(card), i, card]; })
+                        .sort(function (a, b) { return (b[0] - a[0]) || (a[1] - b[1]); })
+                        .forEach(function (entry, position) { entry[2].style.order = position; });
+                      var buttons = document.querySelectorAll("[data-face-sort]");
+                      for (var i = 0; i < buttons.length; i++) {
+                        var on = buttons[i].getAttribute("data-face-sort") === sort;
+                        buttons[i].classList.toggle("btn-primary", on);
+                        buttons[i].classList.toggle("btn-ghost", !on);
+                        buttons[i].setAttribute("aria-pressed", on ? "true" : "false");
+                      }
+                    }
+                    document.addEventListener("click", function (e) {
+                      var button = e.target.closest && e.target.closest("[data-face-sort]");
+                      if (!button) { return; }
+                      var sort = button.getAttribute("data-face-sort");
+                      try { localStorage.setItem(STORE, sort); } catch (err) {}
+                      apply(sort);
+                    });
+                    var queued = false;
+                    function schedule() {
+                      if (queued) { return; }
+                      queued = true;
+                      requestAnimationFrame(function () { queued = false; apply(saved()); });
+                    }
+                    new MutationObserver(schedule).observe(document.documentElement, {
+                      subtree: true, childList: true, attributes: true,
+                      attributeFilter: ["data-votes", "data-named", "data-scenes"]
+                    });
+                    schedule();
+                  })();
+                  {/raw}
+                </script>
+                <div id="face-grid" class="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-4">
                   {%for face <- @faces}
-                    <div class={
+                    <div
+                      data-votes={face.focus_votes}
+                      data-scenes={face.scene_count}
+                      data-named={if(face.label && face.label != "", do: "1", else: "0")}
+                      class={
                       if face.voted do
                         "card bg-primary/10 border border-primary/40 shadow-xl"
                       else
@@ -1037,8 +1536,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
                         {%if face.subtitle}
                           <p class="text-xs text-base-content/60 -mt-2">{face.subtitle}</p>
                         {/if}
-                        <div class="badge badge-secondary badge-lg gap-1 text-base">
-                          <span class="text-lg leading-none">👁</span> {face.focus_votes} in focus
+                        <div class="flex flex-wrap justify-center gap-1.5">
+                          <div class="badge badge-secondary badge-lg gap-1 text-sm sm:text-base whitespace-nowrap">
+                            <span class="text-lg leading-none">👁</span> {face.focus_votes} in focus
+                          </div>
+                          <div class="badge badge-outline badge-lg gap-1 text-sm sm:text-base whitespace-nowrap" title="Number of scenes this face is on screen in">
+                            <span class="text-base leading-none">🎬</span> in {face.scene_count} scene(s)
+                          </div>
                         </div>
                         <div class="flex flex-wrap gap-x-2 gap-y-3 justify-center w-full max-h-24 overflow-y-auto pt-2 pr-2 [scrollbar-width:thin] [scrollbar-color:oklch(50%_0_0/50%)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[oklch(50%_0_0/50%)] [&::-webkit-scrollbar-thumb]:rounded-full">
                           {%for scene <- face.scenes}
@@ -1053,9 +1557,9 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
                               }
                               class={
                                 if scene.voted do
-                                  "relative badge badge-primary cursor-pointer pr-4"
+                                  "relative badge badge-primary cursor-pointer pr-4 whitespace-nowrap text-xs sm:text-sm"
                                 else
-                                  "relative badge badge-outline cursor-pointer hover:badge-primary pr-4"
+                                  "relative badge badge-outline cursor-pointer hover:badge-primary pr-4 whitespace-nowrap text-xs sm:text-sm"
                                 end
                               }
                             >
@@ -1099,11 +1603,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminMoviePage do
                     </div>
                   {/for}
                 </div>
-                <div class="pointer-events-none absolute inset-y-0 right-0 w-1.5 rounded-full bg-base-300/50">
-                  <div class="w-1.5 h-1/5 rounded-full bg-[oklch(50%_0_0/70%)]"></div>
                 </div>
-                </div>
-              </div>
+              </details>
             </div>
           {/if}
 
