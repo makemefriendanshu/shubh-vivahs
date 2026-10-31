@@ -229,6 +229,29 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierePage do
             </div>
           {/if}
 
+          {%if @albums != []}
+            <div id="photo-albums" class="mb-8">
+              <h3 class="font-display text-lg mb-3">Photo Albums</h3>
+              <div class="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3">
+                {%for album <- @albums}
+                  <Link to={AlbumPage, uploader: album.uploader_slug, album: album.slug} class="card card-stock shadow hover:shadow-xl hover:-translate-y-0.5 transition flex flex-row items-center gap-3 p-3">
+                    <img src={album.cover_url} alt="" loading="lazy" class="w-16 h-16 rounded-box object-cover shrink-0 bg-base-300" />
+                    <div class="min-w-0">
+                      <p class="font-display truncate">{album.title}</p>
+                      <p class="text-xs text-base-content/60">{album.count} photos</p>
+                      {%if @logged_in?}
+                        <span class={if(album.public, do: "badge badge-success badge-sm gap-1", else: "badge badge-ghost badge-sm gap-1")}>
+                          <span class={if(album.public, do: "hero-eye w-3 h-3", else: "hero-eye-slash w-3 h-3")}></span>
+                          {if(album.public, do: "Public", else: "Private")}
+                        </span>
+                      {/if}
+                    </div>
+                  </Link>
+                {/for}
+              </div>
+            </div>
+          {/if}
+
           {%if @movies == []}
             <div class="card card-stock shadow-xl">
               <div class="card-body">
@@ -294,36 +317,6 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PremierePage do
                   </div>
                 </div>
               {/for}
-            </div>
-          {/if}
-
-          {%if @albums != []}
-            <div id="photo-albums" class="mt-10">
-              <h2 class="font-display text-xl sm:text-2xl text-center">Photo Albums</h2>
-              <div class="gold-divider w-24 mx-auto mt-1 mb-6"></div>
-              <div class="grid grid-cols-1 min-[480px]:grid-cols-2 gap-4">
-                {%for album <- @albums}
-                  <Link to={AlbumPage, uploader: album.uploader_slug, album: album.slug} class="card card-stock shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition overflow-hidden group">
-                    <figure class="aspect-[4/3] bg-base-300 overflow-hidden">
-                      {%if album.cover_url}
-                        <img src={album.cover_url} alt={album.title} loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                      {/if}
-                    </figure>
-                    <div class="card-body items-center text-center p-4">
-                      <h3 class="font-display text-lg break-words">{album.title}</h3>
-                      <div class="flex flex-wrap justify-center gap-2">
-                        <span class="badge badge-outline badge-primary">{album.count} photos</span>
-                        {%if @logged_in?}
-                          <span class={if(album.public, do: "badge badge-success badge-sm gap-1", else: "badge badge-ghost badge-sm gap-1")}>
-                            <span class={if(album.public, do: "hero-eye w-3 h-3", else: "hero-eye-slash w-3 h-3")}></span>
-                            {if(album.public, do: "Public", else: "Private")}
-                          </span>
-                        {/if}
-                      </div>
-                    </div>
-                  </Link>
-                {/for}
-              </div>
             </div>
           {/if}
         </div>
