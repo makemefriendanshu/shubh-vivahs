@@ -133,6 +133,47 @@ defmodule ShubhVivahs.Photos do
     end
   end
 
+  @doc """
+  Each recognised person's `?person=` link value in `album`, as
+  `%{face id => slug}`: their name in kebab case (`"rahul-sharma"`, then
+  `"rahul-sharma-2"` for a second face group with the same name), or
+  `"guest-<face id>"` while unnamed.
+  """
+  def person_slugs(%Album{id: album_id}) do
+    Repo.all(
+      from f in Face,
+        where: f.album_id == ^album_id,
+        order_by: [asc: f.id],
+        select: {f.id, f.label}
+    )
+    |> Enum.map_reduce(MapSet.new(), fn {id, label}, taken ->
+      base =
+        if is_binary(label) and String.trim(label) != "",
+          do: MovieSlug.slugify(label),
+          else: "guest-#{id}"
+
+      slug =
+        Stream.iterate(1, &(&1 + 1))
+        |> Stream.map(fn
+          1 -> base
+          n -> "#{base}-#{n}"
+        end)
+        |> Enum.find(&(not MapSet.member?(taken, &1)))
+
+      {{id, slug}, MapSet.put(taken, slug)}
+    end)
+    |> elem(0)
+    |> Map.new()
+  end
+
+  @doc "The recognised person in `album` with this `person_slugs/1` slug, or nil."
+  def album_person_by_slug(%Album{} = album, slug) do
+    case Enum.find(person_slugs(album), fn {_id, s} -> s == slug end) do
+      {id, _} -> album_person(album, id)
+      nil -> nil
+    end
+  end
+
   @doc "Whether face recognition has found anyone in `album` yet."
   def recognised?(%Album{id: id}), do: Repo.exists?(from f in Face, where: f.album_id == ^id)
 
@@ -213,10 +254,11 @@ defmodule ShubhVivahs.Photos do
 
   @doc """
   An album's recognised people for the admin page, each
-  `%{id:, label:, subtitle:, face_url:, photos:, votes:}` (`photos` = how
-  many photos they are in), most photos first.
+  `%{id:, slug:, label:, subtitle:, face_url:, photos:, votes:}` (`photos` =
+  how many photos they are in, `slug` as in `person_slugs/1`), most photos
+  first.
   """
-  def people(%Album{id: album_id}) do
+  def people(%Album{id: album_id} = album) do
     photo_counts =
       Repo.all(
         from d in Detection,
@@ -237,10 +279,13 @@ defmodule ShubhVivahs.Photos do
       )
       |> Map.new()
 
+    slugs = person_slugs(album)
+
     Repo.all(from f in Face, where: f.album_id == ^album_id, order_by: [asc: f.id])
     |> Enum.map(fn face ->
       %{
         id: face.id,
+        slug: Map.fetch!(slugs, face.id),
         label: face.label,
         subtitle: face.subtitle,
         face_url: face_url(face),

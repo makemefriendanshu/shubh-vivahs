@@ -195,11 +195,32 @@ defmodule ShubhVivahs.PhotosTest do
       assert Photos.album_person(other, c.bride.id) == nil
     end
 
+    test "person_slugs/1 names people in kebab case, numbering namesakes", c do
+      emb = List.duplicate(0.1, 4)
+      twin = Repo.insert!(%Face{album_id: c.album.id, label: "  bride ", embedding: emb})
+      rahul = Repo.insert!(%Face{album_id: c.album.id, label: "Rahul Sharma", embedding: emb})
+
+      assert Photos.person_slugs(c.album) == %{
+               c.bride.id => "bride",
+               c.guest.id => "guest-#{c.guest.id}",
+               twin.id => "bride-2",
+               rahul.id => "rahul-sharma"
+             }
+    end
+
+    test "album_person_by_slug/2 finds a person by their slug", c do
+      assert %{id: id} = Photos.album_person_by_slug(c.album, "bride")
+      assert id == c.bride.id
+      assert %{id: g} = Photos.album_person_by_slug(c.album, "guest-#{c.guest.id}")
+      assert g == c.guest.id
+      assert Photos.album_person_by_slug(c.album, "nobody") == nil
+    end
+
     test "people/1 counts photos and votes per person, most photos first", c do
       :ok = Photos.toggle_vote(c.p1.id, c.guest.id, "s1")
 
       assert [
-               %{id: b, label: "Bride", photos: 2, votes: 0},
+               %{id: b, slug: "bride", label: "Bride", photos: 2, votes: 0},
                %{id: g, label: nil, photos: 1, votes: 1}
              ] = Photos.people(c.album)
 

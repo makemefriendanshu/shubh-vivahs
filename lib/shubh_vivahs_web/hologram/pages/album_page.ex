@@ -239,14 +239,19 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AlbumPage do
     end
   end
 
-  # `?person=<face id>` narrows the album to the photos one recognised
-  # person is in (linked from the admin page's People list).
+  # `?person=<slug>` (e.g. `rahul-sharma`, see `Photos.person_slugs/1`)
+  # narrows the album to the photos one recognised person is in (linked
+  # from the admin page's People list). Older links used the face id.
   defp person_filter(album, query) do
-    with value when is_binary(value) <- query["person"],
-         {id, ""} <- Integer.parse(value) do
-      Photos.album_person(album, id)
-    else
-      _ -> nil
+    case query["person"] do
+      value when is_binary(value) and value != "" ->
+        case Integer.parse(value) do
+          {id, ""} -> Photos.album_person(album, id)
+          _ -> Photos.album_person_by_slug(album, value)
+        end
+
+      _ ->
+        nil
     end
   end
 

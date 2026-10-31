@@ -132,9 +132,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAlbumPage do
   def action(:person_saved, params, component) do
     people =
       Enum.map(component.state.people, fn person ->
-        if person.id == params.face_id,
-          do: %{person | label: params.label, subtitle: params.subtitle},
-          else: person
+        person =
+          if person.id == params.face_id,
+            do: %{person | label: params.label, subtitle: params.subtitle},
+            else: person
+
+        # A new name can also renumber a namesake's slug.
+        %{person | slug: Map.get(params.slugs, person.id, person.slug)}
       end)
 
     put_state(component, people: people, message: nil)
@@ -187,12 +191,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAlbumPage do
   end
 
   def command(:persist_person, params, server) do
-    {:ok, _face} = Photos.label_face(params.face_id, params.label, params.subtitle)
+    {:ok, face} = Photos.label_face(params.face_id, params.label, params.subtitle)
 
     put_action(server, :person_saved,
       face_id: params.face_id,
       label: params.label,
-      subtitle: params.subtitle
+      subtitle: params.subtitle,
+      slugs: Photos.person_slugs(Photos.get_album(face.album_id))
     )
   end
 
@@ -399,12 +404,12 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAlbumPage do
                   data-named={if(person.label, do: "1", else: "0")}
                   class="card card-stock shadow p-3 flex flex-row gap-3 items-start"
                 >
-                  <a href={"#{@album.view_path}?person=#{person.id}"} class="shrink-0" tabindex="-1" aria-hidden="true">
+                  <a href={"#{@album.view_path}?person=#{person.slug}"} class="shrink-0" tabindex="-1" aria-hidden="true">
                     <img src={person.face_url} alt="" loading="lazy" class="w-16 h-16 sm:w-20 sm:h-20 rounded-box object-cover bg-base-300 hover:ring-2 hover:ring-primary transition" />
                   </a>
                   <div class="flex-1 min-w-0 flex flex-col gap-1.5">
                     <p class="text-xs text-base-content/60 tabular-nums">
-                      <a href={"#{@album.view_path}?person=#{person.id}"} id={"person-photos-#{person.id}"} class="link link-primary font-semibold" title="See every photo this person is in">{person.photos} photos &rarr;</a>
+                      <a href={"#{@album.view_path}?person=#{person.slug}"} id={"person-photos-#{person.id}"} class="link link-primary font-semibold" title="See every photo this person is in">{person.photos} photos &rarr;</a>
                       · &hearts; {person.votes}
                     </p>
                     <input type="text" name="label" value={person.label} placeholder="Name" aria-label="Name" class="input input-bordered input-xs w-full" />
