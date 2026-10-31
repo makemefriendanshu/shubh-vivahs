@@ -2,7 +2,12 @@ import Config
 
 config :shubh_vivahs, ShubhVivahs.Repo,
   database: Path.expand("../priv/face_detection/shubh_vivahs_test.db", __DIR__),
-  pool: Ecto.Adapters.SQL.Sandbox
+  pool: Ecto.Adapters.SQL.Sandbox,
+  # SQLite allows one writer at a time and every sandboxed test holds its
+  # transaction until it ends, so async tests that write queue up behind
+  # each other. Wait for the lock (default 2s) instead of failing with
+  # "Database busy".
+  busy_timeout: 15_000
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
