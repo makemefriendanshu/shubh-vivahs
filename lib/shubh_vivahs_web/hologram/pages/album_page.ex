@@ -42,6 +42,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AlbumPage do
         |> put_state(:album, %{
           id: album.id,
           title: album.title,
+          path: Photos.album_path(album),
+          uploader: ShubhVivahs.MovieSlug.uploader_name_for(album.user_id),
           description: album.description,
           event_line: event_line(album),
           total: total,
@@ -284,7 +286,25 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AlbumPage do
     ~HOLO"""
     <div class="min-h-screen p-4 sm:p-6">
       <div class="max-w-6xl mx-auto">
-        <Link to={PremierePage} class="link link-hover text-sm">&larr; Back to Gallery</Link>
+        <nav id="album-breadcrumbs" aria-label="Breadcrumb" class="text-sm">
+          <ol class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-base-content/70">
+            <li><Link to={PremierePage} class="link link-hover">Gallery</Link></li>
+            {%if @album}
+              {%if @album.uploader}
+                <li aria-hidden="true" class="hero-chevron-right w-3.5 h-3.5 text-base-content/40"></li>
+                <li class="truncate max-w-[10rem]">{@album.uploader}</li>
+              {/if}
+              <li aria-hidden="true" class="hero-chevron-right w-3.5 h-3.5 text-base-content/40"></li>
+              {%if @album.person}
+                <li class="min-w-0"><a href={@album.path} id="crumb-album" class="link link-hover truncate">{@album.title}</a></li>
+                <li aria-hidden="true" class="hero-chevron-right w-3.5 h-3.5 text-base-content/40"></li>
+                <li aria-current="page" class="font-medium text-base-content truncate">{@album.person.label || "Guest"}</li>
+              {%else}
+                <li aria-current="page" class="font-medium text-base-content truncate">{@album.title}</li>
+              {/if}
+            {/if}
+          </ol>
+        </nav>
 
         {%if @album == nil}
           <div class="card card-stock shadow-xl mt-4">

@@ -219,6 +219,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAlbumPage do
     %{
       id: album.id,
       title: album.title,
+      uploader: MovieSlug.uploader_name_for(album.user_id),
       slug: album.slug,
       public: album.public,
       description: album.description,
@@ -281,7 +282,19 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAlbumPage do
     ~HOLO"""
     <div class="min-h-screen p-4 sm:p-6">
       <div class="max-w-5xl mx-auto">
-        <a href="/admin" class="link link-hover text-sm">&larr; Admin</a>
+        <nav id="album-breadcrumbs" aria-label="Breadcrumb" class="text-sm">
+          <ol class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-base-content/70">
+            <li><a href="/admin" class="link link-hover">Admin</a></li>
+            {%if @album}
+              {%if @album.uploader}
+                <li aria-hidden="true" class="hero-chevron-right w-3.5 h-3.5 text-base-content/40"></li>
+                <li class="truncate max-w-[10rem]">{@album.uploader}</li>
+              {/if}
+              <li aria-hidden="true" class="hero-chevron-right w-3.5 h-3.5 text-base-content/40"></li>
+              <li aria-current="page" class="font-medium text-base-content truncate">{@album.title}</li>
+            {/if}
+          </ol>
+        </nav>
 
         {%if @album == nil}
           <div class="card card-stock shadow-xl mt-4">
@@ -304,7 +317,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAlbumPage do
             </button>
             <a href={@album.view_path} id="album-view-link" class="btn btn-sm btn-primary ml-auto">View album &rarr;</a>
           </div>
-          <p class="text-sm text-base-content/60 -mt-2 mb-4">{@album.photo_count} photos · {@album.view_path}</p>
+          <p class="text-sm text-base-content/60 -mt-2 mb-4">{@album.photo_count} photos</p>
 
           {%if @message}
             <div role="status" class="alert alert-info text-sm mb-4 py-2">{@message}</div>

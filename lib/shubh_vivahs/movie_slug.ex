@@ -106,6 +106,13 @@ defmodule ShubhVivahs.MovieSlug do
     end
   end
 
+  @doc "The uploader's name as people see it (for breadcrumbs), or nil."
+  @spec uploader_name_for(integer | nil) :: String.t() | nil
+  def uploader_name_for(nil), do: nil
+
+  def uploader_name_for(user_id),
+    do: Repo.one(from u in User, where: u.id == ^user_id, select: u.name)
+
   @doc "Finds a movie by slug, or nil."
   @spec get(String.t()) :: Movie.t() | nil
   def get(slug) when is_binary(slug), do: Repo.get_by(Movie, slug: slug)
