@@ -375,7 +375,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
 
   def template do
     ~HOLO"""
-    <div class="min-h-screen p-6">
+    <div class="min-h-screen p-4 sm:p-6">
       <div class="max-w-3xl mx-auto">
         <div class="flex items-center justify-center gap-3 mb-1">
           <svg viewBox="0 0 24 40" class="w-4 h-8 text-primary/70" fill="none" stroke="currentColor" stroke-width="1.2">
@@ -416,7 +416,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
         <div class="flex flex-col gap-4">
           {%for {step, index} <- Enum.with_index(@admin_steps, 1)}
             <div class="card card-stock shadow-xl">
-              <div class="card-body flex-row items-center gap-4 py-4">
+              <div class="card-body flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4 sm:p-6">
                 <div class="relative shrink-0">
                   <div class="w-14 h-14 rounded-box bg-secondary/10 border-2 border-secondary/40 flex items-center justify-center">
                     <span class={"#{step.icon} w-7 h-7 text-secondary"}></span>
@@ -425,7 +425,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
                     {index}
                   </span>
                 </div>
-                <div>
+                <div class="min-w-0 flex-1">
                   <p class="font-display text-sm uppercase tracking-wide">{step.title}</p>
                   <p class="text-sm text-base-content/70 mt-1">{step.body}</p>
                 </div>
@@ -451,7 +451,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
 
             <p class="text-sm text-base-content/60 mt-3 mb-2">Choose an amount, then scan or tap to pay</p>
 
-            <div class="join">
+            <div class="join flex-wrap justify-center">
               {%for tier <- @amount_tiers}
                 <button
                   $click={:select_amount, amount: tier}
@@ -571,19 +571,19 @@ defmodule ShubhVivahsWeb.Hologram.Pages.UpgradePage do
             <p class="text-xs text-base-content/50 mb-2 max-w-xs">
               If you reloaded the page or came back later, re-enter your code to see its live status.
             </p>
-            <div class="join">
+            <div class="join w-full sm:w-auto">
               <input
                 type="text"
                 $change="update_status_check_code"
                 value={@status_check_code}
                 placeholder="e.g. FC-A1B2C3"
                 disabled={@paid_amount == @selected_amount}
-                class="join-item input input-bordered input-sm w-40 text-center"
+                class="join-item input input-bordered input-sm w-full min-w-0 sm:w-40 text-center"
               />
               <button
                 $click="check_code_status_clicked"
                 disabled={@paid_amount == @selected_amount}
-                class="join-item btn btn-sm btn-outline gap-2"
+                class="join-item btn btn-sm btn-outline gap-2 shrink-0"
               >
                 {%if @checking_code?}
                   <span class="loading loading-spinner loading-xs"></span>

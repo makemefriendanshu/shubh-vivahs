@@ -62,12 +62,12 @@ defmodule ShubhVivahsWeb.Hologram.Pages.GenerateLinkPage do
               </div>
             </div>
 
-            <div class="flex items-center justify-between mt-5">
-              <span class="flex items-center gap-2 text-sm font-display">
+            <div class="flex items-center justify-between gap-3 mt-5">
+              <span class="flex items-center gap-2 text-sm font-display min-w-0">
                 <span class="hero-lock-open w-4 h-4"></span>
                 Password Protect
               </span>
-              <input type="checkbox" class="toggle toggle-primary pointer-events-none" checked />
+              <input type="checkbox" class="toggle toggle-primary pointer-events-none shrink-0" checked />
             </div>
             <input
               type="password"
@@ -76,12 +76,12 @@ defmodule ShubhVivahsWeb.Hologram.Pages.GenerateLinkPage do
               disabled
             />
 
-            <div class="flex items-center justify-between mt-5">
-              <span class="flex items-center gap-2 text-sm font-display">
+            <div class="flex items-center justify-between gap-3 mt-5">
+              <span class="flex items-center gap-2 text-sm font-display min-w-0">
                 <span class="hero-clock w-4 h-4"></span>
                 Expirable Link
               </span>
-              <input type="checkbox" class="toggle toggle-primary pointer-events-none" checked />
+              <input type="checkbox" class="toggle toggle-primary pointer-events-none shrink-0" checked />
             </div>
             <div class="grid grid-cols-2 gap-2 mt-2">
               <div>
@@ -94,20 +94,20 @@ defmodule ShubhVivahsWeb.Hologram.Pages.GenerateLinkPage do
               </div>
             </div>
 
-            <div class="flex items-center justify-between mt-5">
-              <span class="flex items-center gap-2 text-sm font-display">
+            <div class="flex items-center justify-between gap-3 mt-5">
+              <span class="flex items-center gap-2 text-sm font-display min-w-0">
                 <span class="hero-arrow-down-tray w-4 h-4"></span>
                 Allow Guest Downloads
               </span>
-              <input type="checkbox" class="toggle toggle-primary pointer-events-none" />
+              <input type="checkbox" class="toggle toggle-primary pointer-events-none shrink-0" />
             </div>
 
-            <div class="flex items-center justify-between mt-5">
-              <span class="flex items-center gap-2 text-sm font-display">
+            <div class="flex items-center justify-between gap-3 mt-5">
+              <span class="flex items-center gap-2 text-sm font-display min-w-0">
                 <span class="hero-chat-bubble-left-right w-4 h-4"></span>
                 Private Message
               </span>
-              <input type="checkbox" class="toggle toggle-primary pointer-events-none" />
+              <input type="checkbox" class="toggle toggle-primary pointer-events-none shrink-0" />
             </div>
             <textarea
               class="textarea textarea-bordered w-full mt-2 text-sm"

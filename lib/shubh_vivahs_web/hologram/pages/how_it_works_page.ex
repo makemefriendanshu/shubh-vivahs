@@ -82,9 +82,12 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HowItWorksPage do
     |> put_state(:engine_steps, @engine_steps)
   end
 
+  # The Focus Engine pipeline is a top-to-bottom list of slim rows with
+  # down arrows on phones, and a left-to-right row of tiles with right
+  # arrows from sm up.
   def template do
     ~HOLO"""
-    <div class="min-h-screen p-6">
+    <div class="min-h-screen p-4 sm:p-6">
       <div class="max-w-5xl mx-auto">
         <div class="flex items-center justify-center gap-3 mb-1">
           <svg viewBox="0 0 24 40" class="w-4 h-8 text-primary/70" fill="none" stroke="currentColor" stroke-width="1.2">
@@ -105,14 +108,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HowItWorksPage do
         <div class="gold-divider w-24 mx-auto mb-8"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <h2 class="font-display text-lg text-center mb-4 badge badge-lg badge-outline badge-primary px-6 py-4 w-full">
+          <div class="min-w-0">
+            <h2 class="font-display text-base sm:text-lg text-center mb-4 badge badge-lg badge-outline badge-primary px-4 sm:px-6 py-3 sm:py-4 w-full h-auto whitespace-normal leading-tight">
               The Viewer Experience
             </h2>
             <div class="flex flex-col gap-4">
               {%for {step, index} <- Enum.with_index(@viewer_steps, 1)}
                 <div class="card card-stock shadow-xl">
-                  <div class="card-body flex-row items-center gap-4 py-4">
+                  <div class="card-body flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4 sm:p-6">
                     <div class="relative shrink-0">
                       <div class="w-14 h-14 rounded-box bg-primary/10 border-2 border-primary/40 flex items-center justify-center">
                         <span class={"#{step.icon} w-7 h-7 text-primary"}></span>
@@ -121,8 +124,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HowItWorksPage do
                         {index}
                       </span>
                     </div>
-                    <div>
-                      <p class="font-display text-sm uppercase tracking-wide">{step.title}</p>
+                    <div class="min-w-0 flex-1">
+                      <p class="font-display text-sm uppercase tracking-wide break-words">{step.title}</p>
                       <p class="text-sm text-base-content/70 mt-1">{step.body}</p>
                     </div>
                   </div>
@@ -134,14 +137,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HowItWorksPage do
             </div>
           </div>
 
-          <div>
-            <h2 class="font-display text-lg text-center mb-4 badge badge-lg bg-secondary text-secondary-content border-secondary px-6 py-4 w-full">
+          <div class="min-w-0">
+            <h2 class="font-display text-base sm:text-lg text-center mb-4 badge badge-lg bg-secondary text-secondary-content border-secondary px-4 sm:px-6 py-3 sm:py-4 w-full h-auto whitespace-normal leading-tight">
               The Admin View
             </h2>
             <div class="flex flex-col gap-4">
               {%for {step, index} <- Enum.with_index(@admin_steps, 1)}
                 <div class="card card-stock shadow-xl">
-                  <div class="card-body flex-row items-center gap-4 py-4">
+                  <div class="card-body flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4 sm:p-6">
                     <div class="relative shrink-0">
                       <div class="w-14 h-14 rounded-box bg-secondary/10 border-2 border-secondary/40 flex items-center justify-center">
                         <span class={"#{step.icon} w-7 h-7 text-secondary"}></span>
@@ -150,8 +153,8 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HowItWorksPage do
                         {index}
                       </span>
                     </div>
-                    <div>
-                      <p class="font-display text-sm uppercase tracking-wide">{step.title}</p>
+                    <div class="min-w-0 flex-1">
+                      <p class="font-display text-sm uppercase tracking-wide break-words">{step.title}</p>
                       <p class="text-sm text-base-content/70 mt-1">{step.body}</p>
                     </div>
                   </div>
@@ -171,7 +174,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HowItWorksPage do
         </div>
 
         <div class="mt-10 card card-stock shadow-xl">
-          <div class="card-body">
+          <div class="card-body p-4 sm:p-8">
             <h2 class="font-display text-lg text-center">The Focus Engine</h2>
             <p class="text-center text-sm text-base-content/60 -mt-1 mb-1">The pipeline behind "who's leading" every scene</p>
             <p class="text-center text-xs mb-4">
@@ -179,14 +182,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.HowItWorksPage do
             </p>
             <div class="gold-divider w-16 mx-auto mb-6"></div>
 
-            <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            <div id="focus-engine-steps" class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-1 sm:gap-3 max-w-xs sm:max-w-none mx-auto w-full">
               {%for {step, index} <- Enum.with_index(@engine_steps)}
-                <div class="flex flex-col items-center gap-2 bg-secondary text-secondary-content rounded-box px-3 py-3 w-28 text-center">
-                  <span class={"#{step.icon} w-6 h-6"}></span>
-                  <span class="font-display text-[0.65rem] tracking-wide uppercase">{step.label}</span>
+                <div class="flex flex-row sm:flex-col items-center gap-2.5 sm:gap-2 bg-secondary text-secondary-content rounded-box px-3 py-2 sm:px-3 sm:py-3 w-full sm:w-28 text-left sm:text-center shadow-sm">
+                  <span class={"#{step.icon} w-5 h-5 sm:w-6 sm:h-6 shrink-0"}></span>
+                  <span class="font-display text-[0.7rem] sm:text-[0.65rem] tracking-normal sm:tracking-wide uppercase min-w-0 break-words leading-tight">{step.label}</span>
                 </div>
                 {%if index < length(@engine_steps) - 1}
-                  <span class="text-primary text-xl shrink-0">&rarr;</span>
+                  <span class="text-primary text-lg sm:text-xl leading-none shrink-0 self-center rotate-90 sm:rotate-0" aria-hidden="true">&rarr;</span>
                 {/if}
               {/for}
             </div>

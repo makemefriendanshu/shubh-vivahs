@@ -488,7 +488,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAnalyticsPage do
 
   def template do
     ~HOLO"""
-    <div class="min-h-screen p-6">
+    <div class="min-h-screen p-4 sm:p-6">
       <div class="max-w-3xl mx-auto">
         <div class="flex items-center justify-center gap-2 mb-4">
           <span class="hero-user-circle w-4 h-4 text-base-content/50"></span>
@@ -561,13 +561,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAnalyticsPage do
 
             {%if @filters_visible?}
             <div class="flex flex-wrap items-end gap-2 mt-3">
-              <div class="flex flex-col">
+              <div class="flex flex-col w-full sm:w-auto">
                 <label class="text-xs text-base-content/50 mb-1" for="analytics-from">From</label>
-                <input id="analytics-from" type="date" name="from" value={@filters.from} class={filter_class("input input-bordered input-sm w-36", @filters.from)} />
+                <input id="analytics-from" type="date" name="from" value={@filters.from} class={filter_class("input input-bordered input-sm w-full sm:w-36", @filters.from)} />
               </div>
-              <div class="flex flex-col">
+              <div class="flex flex-col w-full sm:w-auto">
                 <label class="text-xs text-base-content/50 mb-1" for="analytics-to">To</label>
-                <input id="analytics-to" type="date" name="to" value={@filters.to} class={filter_class("input input-bordered input-sm w-36", @filters.to)} />
+                <input id="analytics-to" type="date" name="to" value={@filters.to} class={filter_class("input input-bordered input-sm w-full sm:w-36", @filters.to)} />
               </div>
               <div class="flex flex-col">
                 <label class="text-xs text-base-content/50 mb-1" for="analytics-path">Link</label>
@@ -679,15 +679,15 @@ defmodule ShubhVivahsWeb.Hologram.Pages.AdminAnalyticsPage do
               {%if @regions == []}
                 <p class="text-sm text-base-content/50 mt-3">No visits recorded in this range yet.</p>
               {%else}
-                <div class="flex items-center gap-4 mt-3">
+                <div class="flex flex-col sm:flex-row items-center sm:items-center gap-4 mt-3">
                   <div class="w-24 h-24 rounded-full shrink-0" style={@donut_style}>
                     <div class="w-full h-full rounded-full flex items-center justify-center" style="background: radial-gradient(circle, var(--color-base-100, #faf3e8) 55%, transparent 56%)">
                       <span class="font-display text-sm">{@dashboard.unique_ip_count}</span>
                     </div>
                   </div>
-                  <ul class="text-xs text-base-content/70 flex flex-col gap-1">
+                  <ul class="text-xs text-base-content/70 flex flex-col gap-1 min-w-0">
                     {%for region <- @regions}
-                      <li class="flex items-center gap-2">
+                      <li class="flex items-center gap-2 min-w-0 break-all">
                         <span class="w-2.5 h-2.5 rounded-full shrink-0" style={"background: #{region.color}"}></span>
                         {region.label} ({region.count})
                       </li>

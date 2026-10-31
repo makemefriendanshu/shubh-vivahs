@@ -75,7 +75,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PricingPage do
 
   def template do
     ~HOLO"""
-    <div class="min-h-screen p-6">
+    <div class="min-h-screen p-4 sm:p-6">
       <div class="max-w-5xl mx-auto">
         <div class="flex items-center justify-center gap-3 mb-1">
           <svg viewBox="0 0 24 40" class="w-4 h-8 text-primary/70" fill="none" stroke="currentColor" stroke-width="1.2">
@@ -98,14 +98,14 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PricingPage do
         <div id="bands" class="grid grid-cols-1 sm:grid-cols-2 gap-6 scroll-mt-6">
           {%for band <- @bands}
             <div class="card card-stock shadow-xl">
-              <div class="card-body">
+              <div class="card-body p-4 sm:p-8">
                 <div class="flex items-center gap-3">
                   <div class={"w-14 h-14 rounded-box flex items-center justify-center shrink-0 #{band.icon_wrap_class}"}>
                     <span class={"#{band.icon} w-7 h-7 #{band.icon_class}"}></span>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <p class="text-xs text-base-content/50">{band.tier}</p>
-                    <p class={"badge badge-lg #{band.badge_class}"}>{band.name}</p>
+                    <p class={"badge badge-lg h-auto whitespace-normal leading-tight py-1 #{band.badge_class}"}>{band.name}</p>
                   </div>
                 </div>
 
@@ -126,7 +126,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PricingPage do
 
                 <div class="gold-divider my-4"></div>
 
-                <div class="flex items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   <p class="font-display text-2xl">{band.cost}</p>
                   <span class="btn btn-primary btn-sm pointer-events-none">Select Band</span>
                 </div>
@@ -139,13 +139,13 @@ defmodule ShubhVivahsWeb.Hologram.Pages.PricingPage do
         </p>
 
         <div class="mt-10 card card-stock shadow-xl">
-          <div class="card-body">
-            <div class="flex items-start gap-4">
+          <div class="card-body p-4 sm:p-8">
+            <div class="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
               <div class="w-12 h-12 shrink-0 rounded-box bg-secondary/10 border-2 border-secondary/40 flex items-center justify-center">
                 <span class="hero-key w-6 h-6 text-secondary"></span>
               </div>
-              <div>
-                <h2 class="font-display text-base uppercase tracking-wide">Admin Facility Benefits</h2>
+              <div class="min-w-0 flex-1">
+                <h2 class="font-display text-base uppercase tracking-wide break-words">Admin Facility Benefits</h2>
                 <p class="text-sm text-base-content/70 mt-2">
                   With Admin View you can rename a film and edit its event details, manage every recognised face with its own thumbnail and timestamps, and follow the votes live as the leading face for each scene shifts.
                 </p>

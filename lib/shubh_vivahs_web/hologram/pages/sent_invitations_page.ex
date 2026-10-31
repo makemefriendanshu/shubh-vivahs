@@ -80,7 +80,7 @@ defmodule ShubhVivahsWeb.Hologram.Pages.SentInvitationsPage do
                     <p class="text-sm break-all">{invitation.email}</p>
                     <p class="text-xs text-base-content/50">{invitation.detail}</p>
                   </div>
-                  <div class="flex items-center gap-2 shrink-0">
+                  <div class="flex flex-wrap items-center gap-2">
                     <span class={"badge badge-sm #{invitation.badge}"}>{invitation.status}</span>
                     <span class="btn btn-xs btn-outline pointer-events-none">Resend</span>
                     <span class="btn btn-xs btn-error btn-outline pointer-events-none">Revoke</span>
