@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AllowMultipleFocusVotesPerScene do
+defmodule ShubhVivahs.Repo.Migrations.AllowMultipleFocusVotesPerScene do
   use Ecto.Migration
 
   def change do

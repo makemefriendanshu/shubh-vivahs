@@ -3,8 +3,8 @@
 #
 #     mix run priv/repo/seeds.exs
 
-alias PhoenixHologram.FaceDetection.Movie
-alias PhoenixHologram.Repo
+alias ShubhVivahs.FaceDetection.Movie
+alias ShubhVivahs.Repo
 
 seed_dirs = [
   Path.expand("../../Anshuman  &  Mausam  Wedding", __DIR__),

@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.AddEmbeddingToFaceDetections do
+defmodule ShubhVivahs.Repo.Migrations.AddEmbeddingToFaceDetections do
   use Ecto.Migration
 
   def change do

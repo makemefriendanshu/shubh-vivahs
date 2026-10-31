@@ -28,7 +28,7 @@ defmodule Mix.Tasks.FaceDetection.Ingest do
   end
 
   defp ingest(video_path, opts) do
-    case PhoenixHologram.FaceDetection.ingest_video(video_path, opts) do
+    case ShubhVivahs.FaceDetection.ingest_video(video_path, opts) do
       {:ok, movie} ->
         Mix.shell().info(
           "Movie ##{movie.id} (#{movie.status}): #{length(movie.faces)} unique face(s)"

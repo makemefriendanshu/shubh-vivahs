@@ -1,4 +1,4 @@
-defmodule PhoenixHologram.Repo.Migrations.CreatePageVisits do
+defmodule ShubhVivahs.Repo.Migrations.CreatePageVisits do
   use Ecto.Migration
 
   def change do
