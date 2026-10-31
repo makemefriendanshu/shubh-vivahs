@@ -8,6 +8,8 @@ defmodule ShubhVivahs.FaceDetection.Movie do
     # Stored relative to the uploads folder when it's inside it — see MoviePath.
     field(:path, ShubhVivahs.FaceDetection.MoviePath)
     field(:title, :string)
+    # Player URL name: /premiere/<uploader>/<slug> — see ShubhVivahs.MovieSlug.
+    field(:slug, :string)
     field(:status, :string, default: "pending")
     # Display order across every movie listing (Premiere Hall, admin, nav
     # dropdowns) — nil for movies ingested before this field existed, or
@@ -43,9 +45,10 @@ defmodule ShubhVivahs.FaceDetection.Movie do
 
   def changeset(movie, attrs) do
     movie
-    |> cast(attrs, [:path, :title, :status, :position, :public, :user_id])
+    |> cast(attrs, [:path, :title, :slug, :status, :position, :public, :user_id])
     |> validate_required([:path])
     |> validate_inclusion(:status, @statuses)
+    |> unique_constraint(:slug)
   end
 
   @doc "Changeset for admin-authored listing details: blurb, event date, and location."

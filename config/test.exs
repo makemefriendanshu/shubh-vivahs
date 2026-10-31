@@ -11,6 +11,9 @@ config :shubh_vivahs, ShubhVivahs.Repo,
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
+# Photo album files (ShubhVivahs.Photos.storage_dir/0), away from priv/photos.
+config :shubh_vivahs, :photos_dir, Path.join(System.tmp_dir!(), "shubh_vivahs_test_photos")
+
 config :shubh_vivahs, ShubhVivahsWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "sbwO18j0rJQy23NZI4eYfEwyNu8LEDG10Lrcnn4u6PH/yPgiaVpKjqU5v9pPK0/6",

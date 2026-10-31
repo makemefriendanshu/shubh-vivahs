@@ -21,6 +21,7 @@ defmodule ShubhVivahs.FaceDetection do
   }
 
   alias ShubhVivahs.FaceThumbnail
+  alias ShubhVivahs.MovieJobs
   alias ShubhVivahs.MovieThumbnail
   alias ShubhVivahs.Repo
   alias ShubhVivahs.VideoPreview
@@ -33,26 +34,39 @@ defmodule ShubhVivahs.FaceDetection do
     * `:title` - stored on the movie record
     * `:fps` - frame sampling rate, default 1
     * `:cluster_threshold` - cosine-similarity threshold, see `Clustering`
+
+  Progress is recorded as the movie's "recognition" job (see `MovieJobs`).
   """
   def ingest_video(video_path, opts \\ []) do
     normalized_path = Path.expand(video_path)
 
     with {:ok, movie} <- create_movie(normalized_path, opts) do
-      case do_ingest(movie, normalized_path, opts) do
+      # Progress for AdminMoviePage's progress bar (see MovieJobs): frame
+      # extraction is the first 10%, detection up to 95%, saving the rest.
+      MovieJobs.start(movie.id, "recognition")
+      report = MovieJobs.reporter(movie.id, "recognition")
+
+      case do_ingest(movie, normalized_path, opts, report) do
         {:ok, result} ->
+          MovieJobs.finish(movie.id, "recognition")
           {:ok, result}
 
         {:error, reason} ->
           movie |> Movie.changeset(%{status: "failed"}) |> Repo.update()
+          MovieJobs.fail(movie.id, "recognition", reason)
           {:error, reason}
       end
     end
   end
 
-  defp do_ingest(movie, video_path, opts) do
-    with {:ok, frames} <- FrameExtractor.extract_frames(video_path, opts) do
+  defp do_ingest(movie, video_path, opts, report) do
+    report.("Extracting frames", 0.0)
+    extract_opts = Keyword.put(opts, :on_progress, &report.("Extracting frames", &1 * 0.1))
+
+    with {:ok, frames} <- FrameExtractor.extract_frames(video_path, extract_opts) do
       try do
-        with {:ok, detections} <- detect_all(frames) do
+        with {:ok, detections} <- detect_all(frames, report) do
+          report.("Saving faces", 0.95)
           persist_clusters(movie, detections, opts)
         end
       after
@@ -73,6 +87,11 @@ defmodule ShubhVivahs.FaceDetection do
     |> Repo.update()
   end
 
+  @doc "Labels for the given face ids, as `%{face_id => label | nil}`."
+  def face_labels(face_ids) do
+    Repo.all(from f in Face, where: f.id in ^face_ids, select: {f.id, f.label}) |> Map.new()
+  end
+
   @doc """
   Renames a movie — both its title and, when the file lives under
   `VideoUpload`'s managed storage, its on-disk filename (see
@@ -83,8 +102,15 @@ defmodule ShubhVivahs.FaceDetection do
     movie = Repo.get!(Movie, movie_id)
     new_path = ShubhVivahs.VideoUpload.rename_for_title(movie, title)
 
+    # The player URL follows the title (see MovieSlug), so a renamed
+    # movie's old /premiere/<uploader>/<slug> link stops resolving — its
+    # /premiere/<id> link still redirects to the new one.
     movie
-    |> Movie.changeset(%{title: title, path: new_path})
+    |> Movie.changeset(%{
+      title: title,
+      path: new_path,
+      slug: ShubhVivahs.MovieSlug.unique(title, movie.id)
+    })
     |> Repo.update()
   end
 
@@ -114,7 +140,7 @@ defmodule ShubhVivahs.FaceDetection do
   """
   def list_movies_ordered do
     Repo.all(
-      from m in Movie,
+      from m in wedding_movies(),
         order_by: [
           asc: fragment("CASE WHEN ? IS NULL THEN 1 ELSE 0 END", m.position),
           asc: m.position,
@@ -132,7 +158,7 @@ defmodule ShubhVivahs.FaceDetection do
   """
   def list_public_movies_ordered do
     Repo.all(
-      from m in Movie,
+      from m in wedding_movies(),
         where: m.public == true,
         order_by: [
           asc: fragment("CASE WHEN ? IS NULL THEN 1 ELSE 0 END", m.position),
@@ -149,6 +175,13 @@ defmodule ShubhVivahs.FaceDetection do
   @home_showcase_user_id 4
 
   @doc """
+  The site owner's account (Anshuman, the superuser): the Home page's
+  showcase, and the uploader credited for videos copied in directly
+  rather than uploaded through the site (media library imports).
+  """
+  def owner_user_id, do: @home_showcase_user_id
+
+  @doc """
   Same as `list_public_movies_ordered/0`, further restricted to movies
   owned by the Home page's showcase account (`@home_showcase_user_id`).
   Anonymous visitors only ever see that one account's public videos, not
@@ -157,7 +190,7 @@ defmodule ShubhVivahs.FaceDetection do
   """
   def list_superuser_public_movies_ordered do
     Repo.all(
-      from m in Movie,
+      from m in wedding_movies(),
         where: m.public == true and m.user_id == ^@home_showcase_user_id,
         order_by: [
           asc: fragment("CASE WHEN ? IS NULL THEN 1 ELSE 0 END", m.position),
@@ -165,6 +198,21 @@ defmodule ShubhVivahs.FaceDetection do
           asc: m.id
         ]
     )
+  end
+
+  # Movies backing a media library item (see ShubhVivahs.Library) share
+  # this table for faces/comments/likes, but are never wedding films — every
+  # listing above leaves them out; they're reached from /library instead.
+  defp wedding_movies do
+    library_movie_ids =
+      from i in ShubhVivahs.Library.MediaItem, where: not is_nil(i.movie_id), select: i.movie_id
+
+    from m in Movie, where: m.id not in subquery(library_movie_ids)
+  end
+
+  @doc "Whether `movie` backs a media library item rather than being a wedding film."
+  def library_movie?(%Movie{id: id}) do
+    Repo.exists?(from i in ShubhVivahs.Library.MediaItem, where: i.movie_id == ^id)
   end
 
   @doc """
@@ -252,8 +300,14 @@ defmodule ShubhVivahs.FaceDetection do
     end
   end
 
-  defp detect_all(frames) do
-    Enum.reduce_while(frames, {:ok, []}, fn frame, {:ok, acc} ->
+  defp detect_all(frames, report) do
+    total = max(length(frames), 1)
+
+    frames
+    |> Enum.with_index(1)
+    |> Enum.reduce_while({:ok, []}, fn {frame, index}, {:ok, acc} ->
+      report.("Detecting faces", 0.1 + 0.85 * index / total)
+
       case ModelServer.detect_faces(frame.path) do
         {:ok, faces} ->
           detections = Enum.map(faces, &Map.put(&1, :timestamp_ms, frame.timestamp_ms))

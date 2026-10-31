@@ -10,7 +10,8 @@ defmodule ShubhVivahs.FaceDetection.FrameExtractor do
 
   @doc """
   Extracts frames from `video_path` at `:fps` (default #{@default_fps})
-  into a fresh temp directory. Returns
+  into a fresh temp directory, calling `:on_progress` (if given) with the
+  fraction of the video done so far. Returns
   `{:ok, [%{path: path, timestamp_ms: ms}, ...]}` in playback order, or
   `{:error, reason}`.
   """
@@ -19,7 +20,8 @@ defmodule ShubhVivahs.FaceDetection.FrameExtractor do
 
     with {:ok, ffmpeg} <- ffmpeg_path(),
          {:ok, dir} <- fresh_tmp_dir(),
-         {:ok, _output} <- run_ffmpeg(ffmpeg, video_path, dir, fps) do
+         {:ok, _output} <-
+           run_ffmpeg(ffmpeg, video_path, dir, fps, Keyword.get(opts, :on_progress)) do
       frames =
         dir
         |> File.ls!()
@@ -33,7 +35,7 @@ defmodule ShubhVivahs.FaceDetection.FrameExtractor do
     end
   end
 
-  defp run_ffmpeg(ffmpeg, video_path, dir, fps) do
+  defp run_ffmpeg(ffmpeg, video_path, dir, fps, on_progress) do
     args = [
       "-y",
       "-i",
@@ -45,7 +47,12 @@ defmodule ShubhVivahs.FaceDetection.FrameExtractor do
       Path.join(dir, "frame_%06d.jpg")
     ]
 
-    case System.cmd(ffmpeg, args, stderr_to_stdout: true) do
+    result =
+      if on_progress,
+        do: ShubhVivahs.FFmpegProgress.run(ffmpeg, args, on_progress),
+        else: System.cmd(ffmpeg, args, stderr_to_stdout: true)
+
+    case result do
       {output, 0} -> {:ok, output}
       {output, status} -> {:error, {:ffmpeg_failed, status, output}}
     end

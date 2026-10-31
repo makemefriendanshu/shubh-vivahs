@@ -70,6 +70,18 @@ defmodule ShubhVivahs.FocusPoll do
   end
 
   @doc """
+  Returns one scene's votes as `%{face_id:, session_id:, inserted_at:}`
+  maps — the single-scene counterpart of `all_votes/1`.
+  """
+  @spec scene_votes(integer, integer, integer) :: [map]
+  def scene_votes(movie_id, scene_start_ms, scene_end_ms) do
+    Vote
+    |> where(movie_id: ^movie_id, scene_start_ms: ^scene_start_ms, scene_end_ms: ^scene_end_ms)
+    |> select([v], %{face_id: v.face_id, session_id: v.session_id, inserted_at: v.inserted_at})
+    |> Repo.all()
+  end
+
+  @doc """
   Returns every vote for a movie as `%{scene_start_ms:, scene_end_ms:, face_id:, session_id:}`
   maps, for callers that need per-scene counts/my-vote across many scenes at
   once — one query instead of two per scene.

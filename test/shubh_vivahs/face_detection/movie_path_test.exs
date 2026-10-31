@@ -16,6 +16,13 @@ defmodule ShubhVivahs.FaceDetection.MoviePathTest do
     assert MoviePath.load("/srv/seed/demo.mp4") == {:ok, "/srv/seed/demo.mp4"}
   end
 
+  test "stores media library files relative to the library folder" do
+    absolute = Path.join(ShubhVivahs.Library.storage_dir(), "media/series/000001-Show.mp4")
+
+    assert MoviePath.dump(absolute) == {:ok, "@library/media/series/000001-Show.mp4"}
+    assert MoviePath.load("@library/media/series/000001-Show.mp4") == {:ok, absolute}
+  end
+
   test "round-trips through the database and still matches get_by" do
     absolute = Path.join(MoviePath.uploads_dir(), "9-Someone/000002-Clip.mp4")
     movie = Repo.insert!(%Movie{path: absolute, title: "Clip"})

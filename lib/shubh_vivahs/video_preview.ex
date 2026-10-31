@@ -70,16 +70,18 @@ defmodule ShubhVivahs.VideoPreview do
 
   @doc """
   Transcodes the movie's source file into a cached 720p/#{@preview_bitrate} preview.
-  Overwrites any existing preview. Returns the preview path.
+  Overwrites any existing preview. Returns the preview path. Pass
+  `on_progress: fun` to be called with the fraction done as it goes.
   """
-  @spec generate!(Movie.t()) :: String.t()
-  def generate!(movie) do
+  @spec generate!(Movie.t(), keyword) :: String.t()
+  def generate!(movie, opts \\ []) do
     transcode!(
       movie,
       preview_path(movie),
       @preview_scale,
       @preview_bitrate,
-      @preview_audio_bitrate
+      @preview_audio_bitrate,
+      opts[:on_progress]
     )
   end
 
@@ -87,18 +89,19 @@ defmodule ShubhVivahs.VideoPreview do
   Transcodes the movie's source file into a cached 360p/#{@minimal_bitrate} proxy
   for very bandwidth-constrained playback. Overwrites any existing one. Returns the path.
   """
-  @spec generate_minimal!(Movie.t()) :: String.t()
-  def generate_minimal!(movie) do
+  @spec generate_minimal!(Movie.t(), keyword) :: String.t()
+  def generate_minimal!(movie, opts \\ []) do
     transcode!(
       movie,
       minimal_path(movie),
       @minimal_scale,
       @minimal_bitrate,
-      @minimal_audio_bitrate
+      @minimal_audio_bitrate,
+      opts[:on_progress]
     )
   end
 
-  defp transcode!(%Movie{path: source}, dest, scale, video_bitrate, audio_bitrate) do
+  defp transcode!(%Movie{path: source}, dest, scale, video_bitrate, audio_bitrate, on_progress) do
     File.mkdir_p!(previews_dir())
     tmp = dest <> ".tmp"
 
@@ -129,7 +132,10 @@ defmodule ShubhVivahs.VideoPreview do
       tmp
     ]
 
-    {output, exit_code} = System.cmd(ffmpeg_path(), args, stderr_to_stdout: true)
+    {output, exit_code} =
+      if on_progress,
+        do: ShubhVivahs.FFmpegProgress.run(ffmpeg_path(), args, on_progress),
+        else: System.cmd(ffmpeg_path(), args, stderr_to_stdout: true)
 
     if exit_code == 0 do
       File.rename!(tmp, dest)

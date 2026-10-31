@@ -43,6 +43,19 @@ defmodule ShubhVivahs.VideoMetadata do
     end
   end
 
+  @doc """
+  Drops the cached metadata for a regenerated proxy (`:preview` or
+  `:minimal`), so the quality picker re-probes its new size/resolution.
+  """
+  @spec forget(Movie.t(), :preview | :minimal) :: :ok
+  def forget(movie, :preview), do: rm(preview_cache_path(movie))
+  def forget(movie, :minimal), do: rm(minimal_cache_path(movie))
+
+  defp rm(path) do
+    File.rm(path)
+    :ok
+  end
+
   @doc "One-line human summary, e.g. \"39 min · 1920x1080 · 5.7 GB\"."
   @spec describe(t()) :: String.t()
   def describe(metadata) do

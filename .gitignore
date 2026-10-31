@@ -67,5 +67,16 @@ npm-debug.log
 # User-uploaded source videos (VideoUploadController/VideoUpload).
 /priv/face_detection/uploads/
 
+# Media library copies, subtitles, and thumbnails (mix library.import),
+# and the source folders dropped in the project root to import from.
+/priv/library/
+# Documents kept alongside the library (e-books, PDFs) — not served by the app.
+/priv/books/
+/log/
+/Game of Thrones Season */
+
 logo.jpeg
 images-removebg-preview.png
+
+# Photo albums: moved-in originals plus web copies and thumbnails (ShubhVivahs.Photos).
+/priv/photos/
